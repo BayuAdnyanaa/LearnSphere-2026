@@ -1,0 +1,17 @@
+// Asset canister rules. dfx reads this file from frontend/dist when it uploads the build.
+[
+  {
+    // dfx skips dot folders unless told otherwise. Internet Identity reads the list of
+    // alternative origins from here, so it must be served as JSON that any origin may fetch.
+    "match": ".well-known",
+    "ignore": false
+  },
+  {
+    "match": ".well-known/ii-alternative-origins",
+    "headers": {
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json"
+    },
+    "allow_raw_access": false
+  }
+]
