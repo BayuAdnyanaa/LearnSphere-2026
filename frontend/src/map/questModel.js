@@ -55,7 +55,7 @@ export const STATE_TEXT = {
 // Seconds as m:ss, or h:mm:ss for the 24 h step
 // Total XP needed to reach a level. The level curve is a product decision: change it only here.
 export function xpForLevel(level) {
-  return (level - 1) * 100;
+  return 50 * (level - 1) ** 2;
 }
 
 // The learner's level from total XP, with the XP gained in it and the XP the level spans
@@ -153,7 +153,7 @@ export function buildModel(quests, cooldowns, stats) {
     level,
     xpInLevel: into,
     xpSpan: span,
-    orbGlow: Math.min(1, 0.25 + level / 40),
+    orbGlow: Math.min(1, 0.25 + level / 12),
     next: nextId ? starById[nextId] : null,
   };
 }
