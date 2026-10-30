@@ -1,13 +1,20 @@
-// The open tutor chat. The legacy Fetch.ai agent is gone; the canister tutor replaces it.
+// The open tutor chat. Each question goes to askTutor on the backend canister, which adds the
+// learner's quests as context and asks the LLM canister. The panel sends the last turns back,
+// because the canister keeps no conversation.
 import { useEffect, useRef, useState } from "react";
+
+// The canister accepts up to 6 earlier turns of 1,000 characters, and questions of 500
+const MAX_TURNS = 6;
+const MAX_QUESTION = 500;
 
 // Topic prompts only fill the message box; the learner still sends it
 const TOPICS = ["What is a canister?", "How do principals work?", "What does a uAgent do?"];
 
-export default function TutorPanel({ onClose, next, onOpenQuest }) {
+export default function TutorPanel({ actor, onClose, next, onOpenQuest }) {
   const [userInput, setUserInput] = useState("");
+  // sender: "user", "tutor", or "note" (a limit or an error, never sent back to the model)
   const [messages, setMessages] = useState([]);
-  const isLoading = false;
+  const [isLoading, setIsLoading] = useState(false);
   const endRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -28,10 +35,31 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const handleSendMessage = () => {
-    if (!userInput.trim()) return;
-    setMessages((prev) => [...prev, { text: userInput, sender: "user" }, { text: "The tutor is being rebuilt and cannot answer yet.", sender: "note" }]);
+  const handleSendMessage = async () => {
+    const question = userInput.trim();
+    if (!question || isLoading || !actor) return;
+    const turns = messages
+      .filter((m) => m.sender !== "note")
+      .slice(-MAX_TURNS)
+      .map((m) => ({ fromLearner: m.sender === "user", text: m.text.slice(0, 1000) }));
+    setMessages((prev) => [...prev, { text: question, sender: "user" }]);
     setUserInput("");
+    setIsLoading(true);
+    let reply;
+    try {
+      const result = await actor.askTutor(question, turns);
+      if ("ok" in result) reply = { text: result.ok.text, sender: "tutor" };
+      else if ("limited" in result) {
+        const wait = Number(result.limited.retryAfterSeconds);
+        reply = { text: wait > 0 && wait < 120 ? `${result.limited.reason} Try again in ${wait} s.` : result.limited.reason, sender: "note" };
+      } else if ("rejected" in result) reply = { text: result.rejected.reason, sender: "note" };
+      else reply = { text: result.unavailable.reason, sender: "note" };
+    } catch (error) {
+      console.error("askTutor failed:", error);
+      reply = { text: "The tutor cannot answer right now. Try again later.", sender: "note" };
+    }
+    setMessages((prev) => [...prev, reply]);
+    setIsLoading(false);
   };
 
   return (
@@ -45,18 +73,33 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
       <header className="relative flex flex-col items-center gap-2 px-6 pb-4 pt-6">
         <span aria-hidden="true" className="h-14 w-14 rounded-full" style={{ border: "1px solid rgba(255,255,255,.35)", background: "radial-gradient(circle at 40% 34%, #fff 0%, oklch(0.88 0.08 320) 16%, oklch(0.6 0.2 320 / .7) 50%, rgba(24,10,36,.7) 80%)", boxShadow: "var(--ls-glow-tutor), inset 0 0 18px rgba(255,255,255,.5)" }} />
         <h2 className="ls-display m-0 text-[28px] leading-none">Tutor</h2>
+        <p className="m-0 max-w-[30ch] text-center text-[13px] leading-[1.4]" style={{ color: "var(--ls-text-2)" }}>
+          An AI model answers, and it can be wrong. Check the quest's reading page. Do not type personal data.
+        </p>
         <button type="button" onClick={onClose} className="ls-pill-btn absolute right-4 top-4 h-11 rounded-full px-4 text-[14px] font-medium" aria-label="Close the tutor">
           Close
         </button>
       </header>
 
-      <div className="relative flex min-h-[180px] flex-1 flex-col gap-3 overflow-y-auto px-5 pb-3" aria-live="polite">
+      <div
+        className="relative flex min-h-[180px] flex-1 flex-col gap-3 overflow-y-auto px-5 pb-3 pt-2"
+        aria-live="polite"
+        style={{ maskImage: "linear-gradient(to bottom, transparent 0, #000 20px)" }}
+      >
         {messages.map((msg, i) => (
           <p
             key={i}
-            className={`m-0 max-w-[85%] rounded-[20px] px-4 py-3 text-[14px] leading-[1.45] ${msg.sender === "user" ? "self-end" : "self-start"}`}
-            style={msg.sender === "user" ? { background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.2)" } : { background: "rgba(10,8,14,.72)", border: "1px solid rgba(255,255,255,.12)" }}
+            data-sender={msg.sender}
+            className={`m-0 max-w-[85%] whitespace-pre-line rounded-[20px] px-4 py-3 text-[14px] leading-[1.45] ${msg.sender === "user" ? "self-end" : "self-start"}`}
+            style={
+              msg.sender === "user"
+                ? { background: "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.2)" }
+                : msg.sender === "note"
+                  ? { border: "1px dashed rgba(255,178,122,.45)", color: "var(--ls-cooldown-text)" }
+                  : { background: "rgba(10,8,14,.72)", border: "1px solid rgba(255,255,255,.12)" }
+            }
           >
+            {msg.sender === "tutor" && <span className="ls-sr-only">Tutor: </span>}
             {msg.text}
           </p>
         ))}
@@ -91,6 +134,7 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
           value={userInput}
           onChange={(e) => setUserInput(e.target.value)}
           placeholder="Ask about ICP, agents or a quest…"
+          maxLength={MAX_QUESTION}
           disabled={isLoading}
           className="h-11 min-w-0 flex-1 rounded-full px-4 text-[14px] outline-offset-2 disabled:opacity-60"
           style={{ background: "rgba(0,0,0,.35)", border: "1px solid rgba(255,255,255,.18)", color: "var(--ls-text-1)" }}

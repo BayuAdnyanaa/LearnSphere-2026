@@ -4,7 +4,7 @@ import { lazy, Suspense, useState } from "react";
 const TutorPanel = lazy(() => import("./TutorPanel"));
 
 // The floating glass orb on every screen
-export default function TutorOrb({ next, onOpenQuest }) {
+export default function TutorOrb({ actor, next, onOpenQuest }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -29,7 +29,7 @@ export default function TutorOrb({ next, onOpenQuest }) {
       </div>
       {open && (
         <Suspense fallback={null}>
-          <TutorPanel onClose={() => setOpen(false)} next={next} onOpenQuest={(s) => { setOpen(false); onOpenQuest(s); }} />
+          <TutorPanel actor={actor} onClose={() => setOpen(false)} next={next} onOpenQuest={(s) => { setOpen(false); onOpenQuest(s); }} />
         </Suspense>
       )}
     </>

@@ -311,7 +311,7 @@ function App() {
             onClose={closeQuest}
           />
         )}
-        <TutorOrb next={model.next} onOpenQuest={openQuest} />
+        <TutorOrb actor={actor} next={model.next} onOpenQuest={openQuest} />
       </>
     );
   }
