@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 // ICP and DFINITY imports
@@ -15,24 +15,27 @@ const identityProvider = isLocal
 // In dev, calls go through the Vite /api proxy to the local replica
 const agentHost = isLocal ? window.location.origin : "https://icp-api.io";
 
-// Your existing components
-import Header from "./components/Header";
-import UserStats from "./components/UserStats";
-import QuestGrid from "./components/QuestGrid";
-import QuestModal from "./components/QuestModal";
-import StarField from "./components/StarField";
-// The chat pulls in @cosmjs (most of the bundle), so it loads as its own chunk after the app starts
-const ChatAssistant = lazy(() => import("./components/ChatAssistant"));
+import SkyCanvas from "./sky/SkyCanvas";
+import { useReducedMotion } from "./sky/useAnimationLoop";
+import MapScreen from "./map/MapScreen";
+import QuestSheet from "./quest/QuestSheet";
+import Welcome from "./screens/Welcome";
+import TutorOrb from "./tutor/TutorOrb";
+import { buildModel } from "./map/questModel";
+import { useViewport } from "./useViewport";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [actor, setActor] = useState(null);
-  const [principal, setPrincipal] = useState("");
+  const [, setPrincipal] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [quests, setQuests] = useState([]);
-  const [selectedQuest, setSelectedQuest] = useState(null);
+  // The open quest sheet: which star, which step, and which quest pages were opened
+  const [selectedId, setSelectedId] = useState(null);
+  const [step, setStep] = useState("detail");
+  const [linkOpened, setLinkOpened] = useState({});
   const [quiz, setQuiz] = useState(null);
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -183,14 +186,15 @@ function App() {
     if (!quiet) setIsLoading(false);
   };
 
-  const handleQuizSubmit = async (answers) => {
-    if (!actor || !selectedQuest) return;
+    const handleQuizSubmit = async (answers) => {
+    if (!actor || !selectedId) return;
 
     setIsSubmitting(true);
     try {
-      const result = await actor.submitQuiz(BigInt(selectedQuest.id), answers.map((a) => BigInt(a)));
+      const result = await actor.submitQuiz(BigInt(selectedId), answers.map((a) => BigInt(a)));
       console.log("🧩 Quiz result:", result);
       setQuizResult(result);
+      setStep("result");
       await loadData(actor, { quiet: true });
     } catch (error) {
       console.error("❌ Failed to submit quiz:", error);
@@ -199,17 +203,20 @@ function App() {
     setIsSubmitting(false);
   };
 
-  const startQuest = async (quest) => {
-    if (quest.status !== "available") return;
-    console.log("🎯 Starting quest:", quest);
-    setSelectedQuest(quest);
-    setQuizResult(null);
+  const openQuest = (star) => {
+    setSelectedId(star.id);
+    setStep("detail");
     setQuiz(null);
-    window.open(quest.link, "_blank");
+    setQuizResult(null);
+  };
 
+  const startQuiz = async () => {
+    setStep("quiz");
+    setQuiz(null);
+    setQuizResult(null);
     setIsLoadingQuiz(true);
     try {
-      const found = await actor.getQuiz(BigInt(quest.id));
+      const found = await actor.getQuiz(BigInt(selectedId));
       setQuiz(found.length ? found[0] : null);
     } catch (error) {
       console.error("❌ Failed to load quiz:", error);
@@ -218,11 +225,14 @@ function App() {
     setIsLoadingQuiz(false);
   };
 
-  const handleQuestCancel = () => {
-    setSelectedQuest(null);
+  const closeQuest = useCallback(() => {
+    const id = selectedId;
+    setSelectedId(null);
     setQuiz(null);
     setQuizResult(null);
-  };
+    // Return focus to the star the learner came from
+    requestAnimationFrame(() => document.querySelector(`[data-star="${id}"]`)?.focus());
+  }, [selectedId]);
 
   // Runs once on mount. initAuth is a new function on every render, so listing it would repeat the login check.
   useEffect(() => {
@@ -230,7 +240,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Count the cooldowns down once a second, so a card unlocks without a reload
+  // Count the cooldowns down once a second, so a star leaves its eclipse without a reload
   useEffect(() => {
     const timer = setInterval(() => {
       setCooldowns((current) => {
@@ -244,81 +254,69 @@ function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Render loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <div>Loading LearnSphere...</div>
-        </div>
-      </div>
-    );
-  }
+  const reduced = useReducedMotion();
+  const vp = useViewport();
+  const model = useMemo(() => buildModel(quests, cooldowns, userStats), [quests, cooldowns, userStats]);
+  // MapScreen tells us where each star is on screen, so the quest sheet can sit beside it
+  const anchorOf = useRef(() => null);
+  const setAnchor = useCallback((fn) => { anchorOf.current = fn; }, []);
+  const selected = selectedId ? model.starById[selectedId] : null;
 
-  // Render error state
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="text-red-400 mb-4">❌ {error}</div>
-          <button 
-            onClick={() => {
-              setError(null);
-              setIsLoading(true);
-              initAuth();
-            }} 
-            className="bg-blue-500 hover:bg-blue-600 px-6 py-2 rounded transition-colors"
-          >
-            Retry
+  let screen;
+  if (isLoading) {
+    screen = (
+      <main className="grid min-h-dvh place-items-center">
+        <p className="ls-display m-0 text-[32px]" role="status">Loading the sky…</p>
+      </main>
+    );
+  } else if (error && isAuthenticated) {
+    screen = (
+      <main className="grid min-h-dvh place-items-center px-6">
+        <div className="ls-glass flex max-w-md flex-col gap-4 rounded-ls-panel p-8">
+          <h1 className="ls-display m-0 text-[36px] leading-none">Something went wrong</h1>
+          <p role="alert" className="m-0 text-[15px] leading-[1.5]" style={{ color: "var(--ls-text-2)" }}>{error}</p>
+          <button type="button" onClick={() => { setError(null); loadData(actor); }} className="ls-cta h-12 rounded-full border-0 text-[16px] font-semibold">
+            Try again
           </button>
         </div>
-      </div>
+      </main>
+    );
+  } else if (!isAuthenticated) {
+    screen = <Welcome onLogin={handleLogin} reduced={reduced} error={error} />;
+  } else {
+    screen = (
+      <>
+        <MapScreen model={model} onSelect={openQuest} selectedId={selectedId} reduced={reduced} onLogout={handleLogout} onAnchor={setAnchor} />
+        {selected && (
+          <QuestSheet
+            key={selected.id}
+            star={selected}
+            step={step}
+            anchor={anchorOf.current(selected)}
+            phone={vp.phone}
+            wait={cooldowns[selected.id] ?? 0}
+            quiz={quiz}
+            isLoadingQuiz={isLoadingQuiz}
+            isSubmitting={isSubmitting}
+            result={quizResult}
+            linkOpened={!!linkOpened[selected.id]}
+            onLinkOpened={() => setLinkOpened((l) => ({ ...l, [selected.id]: true }))}
+            onStartQuiz={startQuiz}
+            onSubmit={handleQuizSubmit}
+            onBackToDetail={() => { setStep("detail"); setQuizResult(null); }}
+            onClose={closeQuest}
+          />
+        )}
+        <TutorOrb next={model.next} onOpenQuest={openQuest} />
+      </>
     );
   }
 
-  // Main render
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white relative overflow-hidden">
-      <StarField />
-
-      <div className="relative z-10 container mx-auto px-6 py-8">
-        {isAuthenticated ? (
-          <>
-            <div className="absolute top-4 right-4 z-20 bg-white/10 p-2 rounded-lg text-xs">
-              <p title={principal} className="truncate max-w-[150px]">{principal}</p>
-              <button onClick={handleLogout} className="text-red-400">Logout</button>
-            </div>
-            <Header />
-            {userStats && <UserStats stats={userStats} />}
-            <QuestGrid
-              quests={quests.map((q) => ({ ...q, waitSeconds: cooldowns[q.id] ?? 0 }))}
-              onStartQuest={startQuest}
-            />
-          </>
-        ) : (
-          <div className="text-center pt-20">
-            <Header />
-            <button onClick={handleLogin} className="mt-8 bg-gradient-to-r from-cyan-500 to-purple-500 text-white font-semibold py-3 px-8 rounded-xl text-lg">
-              Login with Internet Identity
-            </button>
-          </div>
-        )}
-
-        <QuestModal
-          quest={selectedQuest}
-          quiz={quiz}
-          isLoadingQuiz={isLoadingQuiz}
-          onSubmit={handleQuizSubmit}
-          onCancel={handleQuestCancel}
-          isSubmitting={isSubmitting}
-          result={quizResult}
-        />
-      </div>
-      <Suspense fallback={null}>
-        <ChatAssistant />
-      </Suspense>
-    </div>
+    <>
+      <SkyCanvas reduced={reduced} />
+      {screen}
+    </>
   );
 }
 
