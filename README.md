@@ -134,10 +134,9 @@ On Windows, run `dfx` inside WSL and run `npm` and Vite on Windows. Do not share
 4.  **Deploy the backend and the local Internet Identity** (second WSL terminal, from the repo root):
     ```sh
     dfx deploy learnsphere_backend
-    dfx deploy internet_identity
     dfx generate learnsphere_backend
     ```
-    `dfx` writes the canister IDs to `.env` at the repo root. Vite reads that file (`envDir: ".."` in `frontend/vite.config.js`).
+    `learnsphere_backend` depends on `internet_identity` in `dfx.json`, so the first command deploys both. `dfx` writes both canister IDs to `.env` at the repo root. Vite reads that file (`envDir: ".."` in `frontend/vite.config.js`).
 
     The `internet_identity` canister is the II **dev** build from release `release-2026-02-28` with the captcha off and dummy authentication on, so you can create test identities without a passkey. It is for local use only. On mainnet the app uses the public II.
 
