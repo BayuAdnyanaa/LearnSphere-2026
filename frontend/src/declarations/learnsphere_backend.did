@@ -4,6 +4,16 @@ type UserStats =
    questsCompleted: vec nat;
    tokens: nat;
  };
+type QuizResult = 
+ variant {
+   failed: record {retryAfterSeconds: nat;};
+   passed: record {
+             experienceEarned: nat;
+             tokensEarned: nat;
+           };
+   rejected: record {reason: text;};
+   wait: record {retryAfterSeconds: nat;};
+ };
 type Quest = 
  record {
    category: text;
@@ -14,16 +24,31 @@ type Quest =
    rewardAmount: nat;
    title: text;
  };
+type PublicQuiz = 
+ record {
+   questId: nat;
+   questions: vec PublicQuestion;
+ };
+type PublicQuestion = 
+ record {
+   options: vec text;
+   "text": text;
+ };
 service : {
-  completeQuest: (questId: nat) -> (text);
   getAllQuests: () -> (vec Quest) query;
   getAllQuestsWithStatus: () -> (vec record {
                                        Quest;
                                        text;
                                      });
+  getCooldowns: () -> (vec record {
+                             nat;
+                             nat;
+                           }) query;
   getNextQuest: () -> (opt Quest);
   getQuestById: (questId: nat) -> (opt Quest) query;
   getQuestCount: () -> (nat) query;
+  getQuiz: (questId: nat) -> (opt PublicQuiz) query;
   getUserStats: () -> (UserStats);
   greet: (name: text) -> (text) query;
+  submitQuiz: (questId: nat, answers: vec nat) -> (QuizResult);
 }
