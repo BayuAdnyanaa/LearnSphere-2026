@@ -223,8 +223,10 @@ function App() {
     setQuizResult(null);
   };
 
+  // Runs once on mount. initAuth is a new function on every render, so listing it would repeat the login check.
   useEffect(() => {
     initAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Count the cooldowns down once a second, so a card unlocks without a reload
