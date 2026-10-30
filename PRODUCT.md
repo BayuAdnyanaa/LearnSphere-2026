@@ -43,7 +43,7 @@ It is a game world, not a course list. Quests, a map of unlocks, rewards and pro
 
 - Name: LearnSphere. Existing logo: `frontend/public/LearnSphere logo.png`.
 - A cosmic world you explore, not a SaaS dashboard and not a pixel game: deep space, light and glass.
-- Approved direction (2a, "Constellation horizon with animal figures"): the quest map is a star chart over a glowing planet rim. Each track is a constellation drawn as an animal (Testudo the Turtle for the Internet Computer, Corvus the Raven for AI Agents, the Phoenix for Web3). Quests are stars; prerequisites are the lines between them. Spec: `docs/design/handoff/README.md`.
+- Approved direction (2a, "Constellation horizon with animal figures"): the quest map is a star chart over a glowing planet rim. Each track is a constellation drawn as an animal (Testudo the Turtle for the Internet Computer, Corvus the Raven for AI Agents, the Phoenix for Web3). Quests are stars; prerequisites are the lines between them.
 - One strong light source per screen. Frosted glass panels with thin bright edges, a glossy planet or orb as the focal object, big display type (Cormorant Garamond italic), Figtree for UI, DM Mono for data, pill-shaped controls, and soft glow used sparingly.
 - Owner's references: the Dribbble shots "Beyond the Horizon", "Gen UI for AI phone OS launcher" (Milkinside), "Post Master AI SaaS landing", "AI Assistant mobile app" and "AlphaChain staking hub".
 - Glass, cosmic gradients, a starfield and soft glow are part of the brand. An earlier rule against them is withdrawn.

@@ -1,4 +1,4 @@
-// Star map geometry and state, from docs/design/handoff/README.md (direction 2a).
+// Star map geometry and state for the star-chart direction (2a).
 // Positions are in the 1440 x 900 design frame.
 
 export const FRAME = { w: 1440, h: 900 };

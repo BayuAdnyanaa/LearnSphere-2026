@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Design tokens from docs/design/handoff/README.md (direction 2a). Names match the hand-off exactly. */
+/* Design tokens of the star-chart direction (2a). */
 :root {
   /* Colours */
   --ls-bg-0: #050409;
