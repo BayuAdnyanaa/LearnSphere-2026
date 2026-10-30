@@ -1,0 +1,12 @@
+{
+  "name": "learnsphere-tutor-proxy",
+  "private": true,
+  "type": "module",
+  "description": "The switched-off OpenRouter fallback for the LearnSphere tutor, as a Vercel function",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}
