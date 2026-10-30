@@ -33,7 +33,10 @@
           "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
         }
       },
-      "frontend": {}
+      "frontend": {},
+      "declarations": {
+        "bindings": []
+      }
     }
   },
   "dfx": "0.31.0",
