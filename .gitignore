@@ -13,3 +13,7 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+# dfx / Vite local state
+.dfx/
+.vite/
+frontend/.vite/
