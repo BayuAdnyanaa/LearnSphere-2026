@@ -225,6 +225,9 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await contrast(page, "map 390");
   await page.setViewportSize({ width: 1440, height: 900 });
+  // Let the layout switch back from the phone map before the tab order is read
+  await page.getByRole("heading", { name: "1 of 12 stars lit" }).first().waitFor();
+  await page.waitForTimeout(800);
   await keyboard(page);
   await context.close();
   await motion(browser);
