@@ -32,7 +32,12 @@ function App() {
   const [userStats, setUserStats] = useState(null);
   const [quests, setQuests] = useState([]);
   const [selectedQuest, setSelectedQuest] = useState(null);
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [quiz, setQuiz] = useState(null);
+  const [isLoadingQuiz, setIsLoadingQuiz] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [quizResult, setQuizResult] = useState(null);
+  // Seconds left before each quest's quiz may be tried again, by quest id
+  const [cooldowns, setCooldowns] = useState({});
 
   const initAuth = async () => {
     try {
@@ -119,13 +124,14 @@ function App() {
     }
   };
 
-  const loadData = async (backendActor) => {
+  // quiet: refresh without the full-page spinner, so an open quiz result stays on screen
+  const loadData = async (backendActor, { quiet = false } = {}) => {
     if (!backendActor) {
       console.error("❌ No actor provided to loadData");
       return;
     }
-    
-    setIsLoading(true);
+
+    if (!quiet) setIsLoading(true);
     setError(null);
     
     try {
@@ -163,47 +169,76 @@ function App() {
       
       setQuests(formattedQuests);
       console.log("📝 Formatted quests:", formattedQuests);
-      
+
+      const waits = await backendActor.getCooldowns();
+      setCooldowns(Object.fromEntries(waits.map(([id, left]) => [Number(id), Number(left)])));
+
     } catch (err) {
       console.error("❌ Failed to load data:", err);
       console.error("Error details:", err);
       setError("Failed to load data: " + err.message);
     }
     
-    setIsLoading(false);
+    if (!quiet) setIsLoading(false);
   };
 
-  const handleQuestComplete = async () => {
+  const handleQuizSubmit = async (answers) => {
     if (!actor || !selectedQuest) return;
 
-    setIsCompleting(true);
+    setIsSubmitting(true);
     try {
-      console.log("✅ Completing quest:", selectedQuest.id);
-      const result = await actor.completeQuest(BigInt(selectedQuest.id));
-      console.log("🎉 Quest complete result:", result);
-      
-      // Reload data to reflect changes
-      await loadData(actor);
+      const result = await actor.submitQuiz(BigInt(selectedQuest.id), answers.map((a) => BigInt(a)));
+      console.log("🧩 Quiz result:", result);
+      setQuizResult(result);
+      await loadData(actor, { quiet: true });
     } catch (error) {
-      console.error("❌ Failed to complete quest:", error);
-      setError("Failed to complete quest: " + error.message);
+      console.error("❌ Failed to submit quiz:", error);
+      setError("Failed to submit quiz: " + error.message);
     }
-    
-    setIsCompleting(false);
-    setSelectedQuest(null);
+    setIsSubmitting(false);
   };
 
-  const startQuest = (quest) => {
+  const startQuest = async (quest) => {
     if (quest.status !== "available") return;
     console.log("🎯 Starting quest:", quest);
     setSelectedQuest(quest);
+    setQuizResult(null);
+    setQuiz(null);
     window.open(quest.link, "_blank");
+
+    setIsLoadingQuiz(true);
+    try {
+      const found = await actor.getQuiz(BigInt(quest.id));
+      setQuiz(found.length ? found[0] : null);
+    } catch (error) {
+      console.error("❌ Failed to load quiz:", error);
+      setError("Failed to load quiz: " + error.message);
+    }
+    setIsLoadingQuiz(false);
   };
 
-  const handleQuestCancel = () => setSelectedQuest(null);
+  const handleQuestCancel = () => {
+    setSelectedQuest(null);
+    setQuiz(null);
+    setQuizResult(null);
+  };
 
   useEffect(() => {
     initAuth();
+  }, []);
+
+  // Count the cooldowns down once a second, so a card unlocks without a reload
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCooldowns((current) => {
+        const next = {};
+        for (const [id, left] of Object.entries(current)) {
+          if (left > 1) next[id] = left - 1;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   // Render loading state
@@ -253,7 +288,10 @@ function App() {
             </div>
             <Header />
             {userStats && <UserStats stats={userStats} />}
-            <QuestGrid quests={quests} onStartQuest={startQuest} />
+            <QuestGrid
+              quests={quests.map((q) => ({ ...q, waitSeconds: cooldowns[q.id] ?? 0 }))}
+              onStartQuest={startQuest}
+            />
           </>
         ) : (
           <div className="text-center pt-20">
@@ -266,9 +304,12 @@ function App() {
 
         <QuestModal
           quest={selectedQuest}
-          onComplete={handleQuestComplete}
+          quiz={quiz}
+          isLoadingQuiz={isLoadingQuiz}
+          onSubmit={handleQuizSubmit}
           onCancel={handleQuestCancel}
-          isCompleting={isCompleting}
+          isSubmitting={isSubmitting}
+          result={quizResult}
         />
       </div>
       <ChatAssistant />

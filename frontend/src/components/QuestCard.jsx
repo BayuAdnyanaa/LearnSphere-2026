@@ -42,7 +42,7 @@ const QuestCard = ({ quest, onStartQuest}) => {
   };
 
   const handleClick = () => {
-    if (quest.status === "available") {
+    if (quest.status === "available" && !(quest.waitSeconds > 0)) {
       onStartQuest(quest);
     }
   };
@@ -86,7 +86,7 @@ const QuestCard = ({ quest, onStartQuest}) => {
         </div>
       </div>
 
-      <QuestActionButton status={quest.status} />
+      <QuestActionButton status={quest.status} waitSeconds={quest.waitSeconds} />
     </div>
   );
 };

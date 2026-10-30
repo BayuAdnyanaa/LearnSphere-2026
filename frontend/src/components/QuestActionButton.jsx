@@ -1,6 +1,14 @@
+import { formatWait } from "./formatWait";
 
+const QuestActionButton = ({ status, waitSeconds = 0 }) => {
+  if (status === "available" && waitSeconds > 0) {
+    return (
+      <div className="w-full bg-amber-600/80 text-white font-semibold py-2 px-4 rounded-xl text-center">
+        ⏳ Try again in {formatWait(waitSeconds)}
+      </div>
+    );
+  }
 
-const QuestActionButton = ({ status }) => {
   if (status === "available") {
     return (
       <button className="w-full bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-semibold py-2 px-4 rounded-xl transition-all duration-200">
