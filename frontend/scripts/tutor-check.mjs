@@ -8,7 +8,7 @@
 // Locally the replies come from the mock (backend/src/llm_mock), so they show the plumbing,
 // not answer quality. Answer quality can only be judged on mainnet.
 import { chromium } from "playwright";
-import { HttpAgent, Actor } from "@dfinity/agent";
+import { HttpAgent, Actor } from "@icp-sdk/core/agent";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { APP, ROOT, login, play, readAnswers } from "./lib.mjs";

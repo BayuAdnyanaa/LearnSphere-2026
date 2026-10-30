@@ -2,15 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 // ICP and DFINITY imports
-import { AuthClient } from "@dfinity/auth-client";
+import { AuthClient } from "@icp-sdk/auth/client";
 import { createActor, canisterId } from "./declarations";
 
 const isLocal = process.env.DFX_NETWORK !== "ic";
 
-// Locally, II runs as its own canister on the replica; on mainnet use the public one
+// Locally, II runs as its own canister on the replica; on mainnet use the public one (II 2.0)
 const identityProvider = isLocal
-  ? `http://${process.env.CANISTER_ID_INTERNET_IDENTITY}.localhost:4943`
-  : "https://identity.ic0.app";
+  ? `http://${process.env.CANISTER_ID_INTERNET_IDENTITY}.localhost:4943/authorize`
+  : "https://id.ai/authorize";
+
+// On mainnet, II derives each user's principal from this fixed origin, whatever URL the app is
+// served from, so progress survives a later custom domain. It must never change after launch:
+// a new value gives every user a new, empty principal. Other URLs go in
+// public/.well-known/ii-alternative-origins.
+const derivationOrigin = isLocal ? undefined : `https://${process.env.CANISTER_ID_LEARNSPHERE_FRONTEND}.icp0.io`;
+
+const newAuthClient = () => new AuthClient({ identityProvider, derivationOrigin });
 
 // In dev, calls go through the Vite /api proxy to the local replica
 const agentHost = isLocal ? window.location.origin : "https://icp-api.io";
@@ -46,9 +54,9 @@ function App() {
   const initAuth = async () => {
     try {
       console.log("🔐 Initializing authentication...");
-      const authClient = await AuthClient.create();
-      
-      if (await authClient.isAuthenticated()) {
+      const authClient = newAuthClient();
+
+      if (authClient.isAuthenticated()) {
         console.log("✅ User already authenticated");
         await handleAuthenticated(authClient);
       } else {
@@ -64,13 +72,13 @@ function App() {
   const handleAuthenticated = async (authClient) => {
     try {
       console.log("🔗 Handling authentication...");
-      const identity = authClient.getIdentity();
+      const identity = await authClient.getIdentity();
       const userPrincipal = identity.getPrincipal().toString();
 
       console.log("👤 User Principal:", userPrincipal);
 
       // Build the actor with the logged-in identity, so each user has their own principal
-      const { HttpAgent } = await import("@dfinity/agent");
+      const { HttpAgent } = await import("@icp-sdk/core/agent");
       const agent = await HttpAgent.create({
         host: agentHost,
         identity,
@@ -94,19 +102,10 @@ function App() {
   const handleLogin = async () => {
     try {
       console.log("🚀 Starting login process...");
-      const authClient = await AuthClient.create();
-      
-      await authClient.login({
-        identityProvider,
-        onSuccess: () => {
-          console.log("✅ Login successful");
-          handleAuthenticated(authClient);
-        },
-        onError: (error) => {
-          console.error("❌ Login error:", error);
-          setError("Login failed: " + error);
-        }
-      });
+      const authClient = newAuthClient();
+      await authClient.signIn();
+      console.log("✅ Login successful");
+      await handleAuthenticated(authClient);
     } catch (err) {
       console.error("❌ Login failed:", err);
       setError("Login failed: " + err.message);
@@ -115,8 +114,8 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      const authClient = await AuthClient.create();
-      await authClient.logout();
+      const authClient = newAuthClient();
+      await authClient.signOut();
       setIsAuthenticated(false);
       setActor(null);
       setPrincipal("");
