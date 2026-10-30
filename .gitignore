@@ -22,3 +22,7 @@ frontend/.vite/
 # Local screenshots from frontend/scripts/screens.mjs
 docs/design/screens-v2/
 docs/demo/raw/
+
+# Demo build: generated data (holds the quiz answers) and its output
+frontend/src/demo/demoData.generated.json
+frontend/dist-demo/

@@ -2,7 +2,7 @@ import AuroraCanvas from "../sky/AuroraCanvas";
 import { useViewport } from "../useViewport";
 
 // The logged-out screen: the planet horizon is its one light source
-export default function Welcome({ onLogin, reduced, error }) {
+export default function Welcome({ onLogin, reduced, error, demo = false }) {
   const vp = useViewport();
   // Cover the window with the 1440 x 900 horizon, anchored to the bottom
   const s = Math.max(vp.w / 1440, vp.h / 900);
@@ -36,9 +36,13 @@ export default function Welcome({ onLogin, reduced, error }) {
         </p>
         <div className="mt-9 flex flex-col items-start gap-3">
           <button type="button" onClick={onLogin} className="ls-cta h-14 rounded-full border-0 px-8 text-[17px] font-semibold">
-            Log in with Internet Identity
+            {demo ? "Start the demo" : "Log in with Internet Identity"}
           </button>
-          <span className="text-[14px]" style={{ color: "var(--ls-text-2)" }}>Internet Identity is the passkey login of the Internet Computer.</span>
+          <span className="max-w-[52ch] text-[14px] leading-[1.5]" style={{ color: "var(--ls-text-2)" }}>
+            {demo
+              ? "Demo mode: no login, and your progress stays in this browser. The full version runs on the Internet Computer, with Internet Identity and an AI tutor."
+              : "Internet Identity is the passkey login of the Internet Computer."}
+          </span>
           {error && <p role="alert" className="m-0 text-[14px]" style={{ color: "var(--ls-cooldown-text)" }}>{error}</p>}
         </div>
       </main>

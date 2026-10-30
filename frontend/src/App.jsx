@@ -20,6 +20,10 @@ const derivationOrigin = isLocal ? undefined : `https://${process.env.CANISTER_I
 
 const newAuthClient = () => new AuthClient({ identityProvider, derivationOrigin });
 
+// The demo build (`npm run build:demo`) runs without a canister: progress stays in the browser.
+// The real build never loads the demo code, because Vite removes these branches.
+const DEMO = import.meta.env.MODE === "demo";
+
 // In dev, calls go through the Vite /api proxy to the local replica
 const agentHost = isLocal ? window.location.origin : "https://icp-api.io";
 
@@ -30,6 +34,7 @@ import QuestSheet from "./quest/QuestSheet";
 import Welcome from "./screens/Welcome";
 import TutorOrb from "./tutor/TutorOrb";
 import { buildModel } from "./map/questModel";
+import DemoBanner from "./demo/DemoBanner";
 import { useViewport } from "./useViewport";
 
 function App() {
@@ -52,6 +57,12 @@ function App() {
   const [cooldowns, setCooldowns] = useState({});
 
   const initAuth = async () => {
+    if (DEMO) {
+      const demo = await import("./demo/demoActor.js");
+      if (demo.hasDemoSession()) await startDemo();
+      setIsLoading(false);
+      return;
+    }
     try {
       console.log("🔐 Initializing authentication...");
       const authClient = newAuthClient();
@@ -99,7 +110,17 @@ function App() {
     }
   };
 
+  const startDemo = async () => {
+    const demo = await import("./demo/demoActor.js");
+    demo.setDemoSession(true);
+    setActor(demo.demoActor);
+    setIsAuthenticated(true);
+    setPrincipal("demo");
+    await loadData(demo.demoActor);
+  };
+
   const handleLogin = async () => {
+    if (DEMO) return startDemo();
     try {
       console.log("🚀 Starting login process...");
       const authClient = newAuthClient();
@@ -114,8 +135,8 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      const authClient = newAuthClient();
-      await authClient.signOut();
+      if (DEMO) (await import("./demo/demoActor.js")).setDemoSession(false);
+      else await newAuthClient().signOut();
       setIsAuthenticated(false);
       setActor(null);
       setPrincipal("");
@@ -285,7 +306,7 @@ function App() {
       </main>
     );
   } else if (!isAuthenticated) {
-    screen = <Welcome onLogin={handleLogin} reduced={reduced} error={error} />;
+    screen = <Welcome onLogin={handleLogin} reduced={reduced} error={error} demo={DEMO} />;
   } else {
     screen = (
       <>
@@ -311,6 +332,7 @@ function App() {
           />
         )}
         <TutorOrb actor={actor} next={model.next} onOpenQuest={openQuest} />
+        {DEMO && <DemoBanner />}
       </>
     );
   }
