@@ -8,6 +8,30 @@ const LAYERS = [
   { count: 28, size: [1.4, 2.4], alpha: [0.55, 0.9], speed: 8 },
 ];
 const BRIGHT = 7;
+// Extra positions for the bright stars, so a star that would sit on text can move
+const BRIGHT_CANDIDATES = 16;
+
+// Boxes around every visible run of text, and around buttons, links and glass panels,
+// so no decorative star sits on a word or a control
+function textRects() {
+  const rects = [];
+  for (const el of document.querySelectorAll("button, a, input, .ls-glass, .ls-glass-pill, dialog[open]")) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 2 && r.height > 2) rects.push(r);
+  }
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  const range = document.createRange();
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) if (r.width > 2 && r.height > 2) rects.push(r);
+  }
+  return rects;
+}
+
+const covered = (rects, x, y, pad) =>
+  rects.some((r) => x > r.left - pad && x < r.right + pad && y > r.top - pad && y < r.bottom + pad);
 
 function buildSky() {
   const rnd = seeded(21);
@@ -22,7 +46,7 @@ function buildSky() {
       ph: rnd() * Math.PI * 2,
     }))
   );
-  const bright = Array.from({ length: BRIGHT }, () => ({
+  const bright = Array.from({ length: BRIGHT_CANDIDATES }, () => ({
     x: 0.04 + rnd() * 0.92,
     y: 0.04 + rnd() * 0.55,
     w: 0.9 + rnd() * 0.9,
@@ -38,16 +62,40 @@ export default function SkyCanvas({ reduced }) {
   const sky = useMemo(buildSky, []);
   const shot = useRef({ at: 4, active: null });
   const size = useRef({ w: window.innerWidth, h: window.innerHeight });
+  const rects = useRef([]);
+  const reducedRef = useRef(reduced);
+  reducedRef.current = reduced;
+  const redrawRef = useRef(() => {});
 
   useEffect(() => {
+    let timer = 0;
+    // Measure the text again after the page settles; layout and content both move it
+    const remeasure = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        rects.current = textRects();
+        // A still frame (reduced motion) must be painted again with the new boxes
+        if (reducedRef.current) redrawRef.current();
+      }, 150);
+    };
     const onResize = () => {
       size.current = { w: window.innerWidth, h: window.innerHeight };
+      remeasure();
     };
+    const observer = new MutationObserver(remeasure);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["style", "class", "open"] });
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    window.addEventListener("scroll", remeasure, true);
+    remeasure();
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", remeasure, true);
+    };
   }, []);
 
-  useAnimationLoop((t) => {
+  redrawRef.current = useAnimationLoop((t) => {
     const canvas = ref.current;
     if (!canvas) return;
     const { w, h } = size.current;
@@ -63,6 +111,7 @@ export default function SkyCanvas({ reduced }) {
         let x = s.x * w - shift;
         if (x < -4) x += w + 8;
         const y = s.y * h + Math.sin(t * 0.05 + s.ph) * (li + 1) * 1.5;
+        if (covered(rects.current, x, y, 4)) continue;
         const twinkle = s.tw ? 1 - s.tw * (0.5 + 0.5 * Math.sin(t * s.w + s.ph)) : 1;
         ctx.globalAlpha = s.a * twinkle;
         ctx.fillStyle = "#fffaf4";
@@ -73,8 +122,12 @@ export default function SkyCanvas({ reduced }) {
     });
 
     // A few bright stars with diffraction spikes and a strong twinkle
+    let drawn = 0;
     for (const b of sky.bright) {
+      if (drawn === BRIGHT) break;
       const x = b.x * w, y = b.y * h;
+      if (covered(rects.current, x, y, b.len + 6)) continue;
+      drawn++;
       const pulse = 0.55 + 0.45 * Math.sin(t * b.w + b.ph);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, 9);
       glow.addColorStop(0, "rgba(255,244,232,0.9)");

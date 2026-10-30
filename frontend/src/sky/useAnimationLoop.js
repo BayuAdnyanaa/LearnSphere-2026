@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // True when the user asks for reduced motion; follows changes live
 export function useReducedMotion() {
@@ -21,6 +21,7 @@ export function useReducedMotion() {
 export function useAnimationLoop(draw, reduced) {
   const drawRef = useRef(draw);
   drawRef.current = draw;
+  const elapsedRef = useRef(0);
 
   useEffect(() => {
     let frame = 0;
@@ -30,6 +31,7 @@ export function useAnimationLoop(draw, reduced) {
 
     const tick = (now) => {
       elapsed += Math.min(0.1, (now - last) / 1000);
+      elapsedRef.current = elapsed;
       last = now;
       drawRef.current(elapsed);
       frame = requestAnimationFrame(tick);
@@ -54,6 +56,8 @@ export function useAnimationLoop(draw, reduced) {
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [reduced]);
+
+  return useCallback(() => drawRef.current(elapsedRef.current), []);
 }
 
 // Sizes a canvas to its CSS box at the device pixel ratio (capped), and returns the 2D context
