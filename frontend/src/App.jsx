@@ -247,7 +247,7 @@ function App() {
       <div className="relative z-10 container mx-auto px-6 py-8">
         {isAuthenticated ? (
           <>
-            <div className="absolute top-4 right-4 bg-white/10 p-2 rounded-lg text-xs">
+            <div className="absolute top-4 right-4 z-20 bg-white/10 p-2 rounded-lg text-xs">
               <p title={principal} className="truncate max-w-[150px]">{principal}</p>
               <button onClick={handleLogout} className="text-red-400">Logout</button>
             </div>
