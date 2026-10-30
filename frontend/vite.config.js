@@ -24,7 +24,8 @@ export default defineConfig({
         )
       },
       // dfx 0.31 generates declarations for the renamed SDK (@icp-sdk/core);
-      // the app still uses @dfinity/agent 3.2.1, which has the same Actor/HttpAgent API
+      // the app still uses @dfinity/agent 3.2.1, which has the same Actor/HttpAgent API.
+      // TEMPORARY: remove when the app migrates to @icp-sdk (decided with dfx vs icp-cli, before mainnet)
       {
         find: "@icp-sdk/core/agent",
         replacement: "@dfinity/agent",
