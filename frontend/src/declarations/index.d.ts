@@ -3,11 +3,11 @@ import type {
   HttpAgentOptions,
   ActorConfig,
   Agent,
-} from "@dfinity/agent";
-import type { Principal } from "@dfinity/principal";
-import type { IDL } from "@dfinity/candid";
+} from "@icp-sdk/core/agent";
+import type { Principal } from "@icp-sdk/core/principal";
+import type { IDL } from "@icp-sdk/core/candid";
 
-import { _SERVICE } from './learnsphere.did';
+import { _SERVICE } from './learnsphere_backend.did';
 
 export declare const idlFactory: IDL.InterfaceFactory;
 export declare const canisterId: string;
@@ -47,4 +47,4 @@ export declare const createActor: (
  * Intialized Actor using default settings, ready to talk to a canister using its candid interface
  * @constructs {@link ActorSubClass}
  */
-export declare const learnsphere: ActorSubclass<_SERVICE>;
+export declare const learnsphere_backend: ActorSubclass<_SERVICE>;

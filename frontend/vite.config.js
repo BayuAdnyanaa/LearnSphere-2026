@@ -6,6 +6,8 @@ import environment from "vite-plugin-environment";
 
 // https://vite.dev/config/
 export default defineConfig({
+  // dfx writes CANISTER_ID_* and DFX_NETWORK into the .env file at the repo root
+  envDir: "..",
   plugins: [
     react(),
     tailwindcss(),
@@ -20,7 +22,13 @@ export default defineConfig({
         replacement: fileURLToPath(
           new URL("../declarations", import.meta.url)
         )
-      }
+      },
+      // dfx 0.31 generates declarations for the renamed SDK (@icp-sdk/core);
+      // the app still uses @dfinity/agent 3.2.1, which has the same Actor/HttpAgent API
+      {
+        find: "@icp-sdk/core/agent",
+        replacement: "@dfinity/agent",
+      },
     ]
   },
   server: {

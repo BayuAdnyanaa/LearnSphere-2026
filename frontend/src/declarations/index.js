@@ -1,8 +1,8 @@
-import { Actor, HttpAgent } from "@dfinity/agent";
+import { Actor, HttpAgent } from "@icp-sdk/core/agent";
 
 // Imports and re-exports candid interface
-import { idlFactory } from "./learnsphere.did.js";
-export { idlFactory } from "./learnsphere.did.js";
+import { idlFactory } from "./learnsphere_backend.did.js";
+export { idlFactory } from "./learnsphere_backend.did.js";
 
 /* CANISTER_ID is replaced by webpack based on node environment
  * Note: canister environment variable will be standardized as
@@ -10,7 +10,7 @@ export { idlFactory } from "./learnsphere.did.js";
  * beginning in dfx 0.15.0
  */
 export const canisterId =
-  process.env.CANISTER_ID_LEARNSPHERE;
+  process.env.CANISTER_ID_LEARNSPHERE_BACKEND;
 
 export const createActor = (canisterId, options = {}) => {
   const agent = options.agent || new HttpAgent({ ...options.agentOptions });
@@ -21,6 +21,7 @@ export const createActor = (canisterId, options = {}) => {
     );
   }
 
+  // Fetch root key for certificate validation during development
   if (process.env.DFX_NETWORK !== "ic") {
     agent.fetchRootKey().catch((err) => {
       console.warn(
@@ -30,6 +31,7 @@ export const createActor = (canisterId, options = {}) => {
     });
   }
 
+  // Creates an actor with using the candid interface and the HttpAgent
   return Actor.createActor(idlFactory, {
     agent,
     canisterId,
@@ -37,4 +39,4 @@ export const createActor = (canisterId, options = {}) => {
   });
 };
 
-export const learnsphere = canisterId ? createActor(canisterId) : undefined;
+export const learnsphere_backend = canisterId ? createActor(canisterId) : undefined;
