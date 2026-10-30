@@ -1,16 +1,32 @@
-# LearnSphere: Your Gamified Gateway to Web3
+# LearnSphere
 
-![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
-![tag:internetcomputer](https://img.shields.io/badge/internetcomputer-3D8BD3)
+**A learn-to-earn quest game for Web3 beginners, built on the Internet Computer.**
 
-**LearnSphere** is a "learn-to-earn" decentralized application (dApp) designed to make education in Web3 accessible, engaging, and rewarding. It transforms the complex world of blockchain, the Internet Computer Protocol (ICP), and AI agents into a gamified adventure where users complete quests, earn rewards, and level up their skills.
+Each quest is a star in a night sky. You read one real page (ICP docs, Fetch.ai docs,
+ethereum.org and others), answer three questions, and the star lights up. The quests form three
+constellations: Testudo the Turtle (the Internet Computer), Corvus the Raven (AI agents) and the
+Phoenix (Web3). An AI tutor helps with the topics, but it never sees the quiz answers.
 
-**Agent Address**: 
-agent1qghztqzczs2ge47xz7xr3vduust7zagw4zfdefpeg74e253paquf6gwr0lu
+![The LearnSphere star map with 4 of 12 stars lit](docs/demo/learnsphere-map.webp)
 
-Bast's Descent :
-- [Brrendenn](https://github.com/Brrendenn)
-- [BayuAdnyanaa](https://github.com/BayuAdnyanaa)
+**Demo video (96 s):** [docs/demo/learnsphere-demo.mp4](docs/demo/learnsphere-demo.mp4).
+It shows a login, a failed quiz with its cooldown, a pass, and the complete sky.
+
+**Status:** Runs locally. Not deployed to the Internet Computer mainnet.
+[Run it locally](#-run-it-locally) in about 15 minutes.
+
+### Credits
+
+- **2025:** Brandon ([Brrendenn](https://github.com/Brrendenn)) and Bayu
+  ([BayuAdnyanaa](https://github.com/BayuAdnyanaa)) built the first version as the team
+  "Bast's Descent": the Motoko quest canister, the React app and a Fetch.ai chat agent.
+- **2026:** Bayu rebuilt it:
+  - quizzes checked by the canister, with growing cooldowns after a failed try
+  - the star-chart quest map, with a phone layout
+  - a level curve and the level planet
+  - an AI tutor on the DFINITY LLM canister, which replaced the Fetch.ai agent
+  - the move to the `@icp-sdk` packages and II 2.0 (`id.ai`)
+  - browser checks for login, quizzes, contrast, keyboard use and reduced motion
 
 ---
 
@@ -27,7 +43,7 @@ The world of Web3 is expanding rapidly, but for newcomers, it presents a steep a
 - **Gamified Learning Quests**: A structured curriculum of quests covering foundational topics like Web3, ICP, Fetch.ai, DeFi, and more.
 - **Learn-to-Earn Model**: Users are rewarded with tokens and experience points for completing quests, creating a powerful incentive to stay engaged.
 - **On-Chain Progress**: All user stats, including completed quests and rewards, are stored on the Internet Computer blockchain, ensuring transparency and ownership.
-- **AI-Powered Chat Assistant**: An integrated chatbot, built with Fetch.ai uAgents, acts as a personal tutor, offering instant support and guidance.
+- **AI Tutor**: A chat tutor answers questions about the learner's quests through the DFINITY LLM canister. It never sees the quiz questions or answers.
 - **Interactive Frontend**: A sleek and responsive user interface built with React and Tailwind CSS provides a seamless user experience.
 - **Decentralized Backend**: The entire application logic is hosted on-chain through Motoko smart contracts on the Internet Computer.
 
@@ -78,7 +94,7 @@ Developing a full-stack dApp across multiple ecosystems presented several challe
 
 -   **Asynchronous State Management**: Synchronizing the React frontend's state with the asynchronous, on-chain state of the Motoko canister required careful management of promises and loading states to ensure a smooth user experience.
 -   **Canister Upgrade Persistence**: Ensuring that all user data stored in the backend canister was correctly preserved during upgrades was a critical challenge, solved by using Motoko's `stable` variables and `preupgrade`/`postupgrade` system functions.
--   **Decentralized Communication**: Establishing a secure and reliable communication channel between the browser-based frontend and the Python-based Fetch.ai agent involved creating temporary user wallets on the fly and signing messages correctly.
+-   **Keeping the Tutor Honest**: The tutor gets only quest titles, descriptions and links. A unit check fails the build if its code can reach the quiz answers, and a browser check searches every prompt for them.
 
 ---
 
@@ -93,61 +109,134 @@ LearnSphere is a foundational platform with exciting potential for growth. Futur
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Run it locally
 
-Follow these instructions to get a local copy up and running for development and testing purposes.
+LearnSphere runs completely on your own machine: a local Internet Computer network, a local
+Internet Identity for test logins, and a mock of the AI tutor model. You need no ICP tokens,
+no cycles and no accounts.
 
-### Prerequisites
+### What you need
 
-- [Node.js](https://nodejs.org/) (v20 or later)
-- `dfx` **0.31.0** (pinned in `dfx.json`). Install it with [dfxvm](https://github.com/dfinity/dfxvm): `sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"`, then `dfxvm install 0.31.0`. dfx 0.32.0 cannot start the local network (PocketIC returns 400).
-- On Windows: WSL2 with Ubuntu. `dfx` does not run on Windows directly.
-- [Python](https://www.python.org/downloads/) (v3.8 or later), only for the chat agent.
+| Tool | Version | Where it runs |
+|---|---|---|
+| [Node.js](https://nodejs.org/) | 20 or later | Windows, or your Linux/macOS shell |
+| `dfx` (the ICP SDK) | **0.31.0** exactly | Linux, macOS, or WSL2 Ubuntu on Windows |
+| Git | any | anywhere |
+| A Chromium-based browser | current | anywhere |
 
-### Installation & Setup
+Install `dfx` with [dfxvm](https://github.com/dfinity/dfxvm):
 
-On Windows, run `dfx` inside WSL and run `npm` and Vite on Windows. Do not share one `node_modules` folder between Windows and WSL.
+```sh
+sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+source "$HOME/.local/share/dfx/env"
+dfxvm install 0.31.0
+dfx --version   # must print: dfx 0.31.0
+```
 
-1.  **Clone the repository** (outside OneDrive; enable long paths on Windows):
-    ```sh
-    git clone -c core.longpaths=true https://github.com/BayuAdnyanaa/LearnSphere.git
-    ```
+`dfx.json` pins 0.31.0, and dfxvm selects it inside this project. Version 0.32.0 cannot start
+the local network (PocketIC returns HTTP 400).
 
-2.  **Install frontend dependencies** (Windows or your normal shell):
-    ```sh
-    cd frontend
-    npm ci
-    ```
+### Linux and macOS
 
-3.  **Start the local network** (WSL / Linux / macOS), and keep this terminal open:
-    ```sh
-    dfx start --clean
-    ```
-    On WSL, run `dfx start` in the foreground. WSL stops the Ubuntu VM shortly after the last `wsl.exe` command exits, so `dfx start --background` from a one-off `wsl -- ...` call dies with it.
+Use three terminals, all in the cloned folder.
 
-4.  **Deploy the backend and the local Internet Identity** (second WSL terminal, from the repo root):
-    ```sh
-    dfx deploy learnsphere_backend
-    dfx generate learnsphere_backend
-    ```
-    `learnsphere_backend` depends on `internet_identity` in `dfx.json`, so the first command deploys both. `dfx` writes both canister IDs to `.env` at the repo root. Vite reads that file (`envDir: ".."` in `frontend/vite.config.js`).
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/BayuAdnyanaa/LearnSphere.git
+   cd LearnSphere
+   ```
+2. **Terminal 1:** start the local network, and keep it open:
+   ```sh
+   dfx start --clean
+   ```
+   Wait until it prints the replica URL (`http://localhost:4943`).
+3. **Terminal 2:** deploy the backend, the local Internet Identity and the tutor mock:
+   ```sh
+   dfx deploy learnsphere_backend
+   ```
+   The first run downloads the Internet Identity wasm and takes a few minutes. `dfx` writes the
+   canister IDs to `.env` in the repository root, and the frontend reads them from there.
+4. **Terminal 3:** install and start the frontend:
+   ```sh
+   cd frontend
+   npm ci
+   npm run dev
+   ```
+5. Open http://localhost:5173 and continue with [Log in](#log-in).
 
-    The `internet_identity` canister is the II **dev** build from release `release-2026-02-28` with the captcha off and dummy authentication on, so you can create test identities without a passkey. It is for local use only. On mainnet the app uses the public II.
+### Windows (WSL2)
 
-    To upgrade the backend and keep user progress:
-    ```sh
-    dfx canister install learnsphere_backend --mode upgrade --wasm-memory-persistence keep
-    ```
+`dfx` does not run on Windows itself. Run `dfx` in WSL2 Ubuntu and run Node.js on Windows.
 
-5.  **Run the frontend:**
-    ```sh
-    cd frontend
-    npm run dev
-    ```
-    Open `http://localhost:5173` and log in with Internet Identity.
+1. Install WSL2 with Ubuntu (`wsl --install -d Ubuntu`), then install `dfx` inside Ubuntu as shown above.
+2. Clone the repository on Windows, outside OneDrive:
+   ```powershell
+   git clone -c core.longpaths=true https://github.com/BayuAdnyanaa/LearnSphere.git C:\dev\LearnSphere
+   ```
+3. **Ubuntu terminal 1:** start the local network, and keep it open:
+   ```sh
+   cd /mnt/c/dev/LearnSphere
+   dfx start --clean
+   ```
+   Keep this terminal in the foreground. A `dfx start --background` from a one-off
+   `wsl -- ...` call dies when that call ends.
+4. **Ubuntu terminal 2:** deploy the canisters:
+   ```sh
+   cd /mnt/c/dev/LearnSphere
+   dfx deploy learnsphere_backend
+   ```
+5. **Windows terminal (PowerShell):** install and start the frontend:
+   ```powershell
+   cd C:\dev\LearnSphere\frontend
+   npm ci
+   npm run dev
+   ```
+6. Open http://localhost:5173 in a Windows browser. WSL2 forwards `localhost:4943` to the
+   local network.
 
-6.  **AI tutor:** the LLM canister does not run on a local replica. Locally, `dfx deploy` builds a mock (`backend/src/llm_mock`) that returns a fixed reply. On mainnet the `llm` canister maps to the real one.
+Run `npm` only on Windows and `dfx` only in WSL. Linux and Windows builds of some packages
+differ, so one `node_modules` folder must not serve both.
 
-The local network is ephemeral: `dfx start --clean` or stopping the network deletes all progress.
+### Log in
 
----
+The local Internet Identity is a test build: it needs no passkey and shows no captcha.
+
+1. Click **Log in with Internet Identity**. A new window opens.
+2. Click **Continue with passkey**, then **Create new identity**.
+3. Type any name, click **Create identity**, then **Continue**.
+
+The star map opens. Each new identity is a new learner with no progress. If you sign in with an
+older test identity again, the test build can return another identity's account, so create a
+new identity for each test user.
+
+### The AI tutor locally
+
+The DFINITY LLM canister does not exist on a local network. `dfx deploy` builds a mock in its
+place (`backend/src/llm_mock`). The mock answers with `[Local mock: ...] You asked: ...`, so the
+local tutor shows the whole path from the app to the model, but no real answers.
+
+### Checks
+
+From `frontend/`:
+
+| Command | What it checks | Needs the local network |
+|---|---|---|
+| `npm test` | unit checks, and that the tutor code cannot reach the quiz answers | no |
+| `npm run lint` | ESLint | no |
+| `npm run build` | the production build | no |
+| `node scripts/login-check.mjs` | login, reload, a failed quiz with its countdown, logout, two users | yes, and `npm run dev` |
+| `node scripts/tutor-check.mjs` | the tutor panel, its limits, and that no prompt contains quiz data | yes, and `npm run dev` |
+| `node scripts/screens.mjs all` | screenshots, contrast, keyboard order and reduced motion | yes, and `npm run dev` |
+
+Before the first browser check, run `npx playwright install chromium` once.
+
+### Good to know
+
+- The local network keeps no data between runs. `dfx start --clean` starts with empty canisters.
+- To change the backend and keep the local progress, upgrade instead of redeploying:
+  ```sh
+  dfx canister install learnsphere_backend --mode upgrade --wasm-memory-persistence keep
+  ```
+- `frontend/src/declarations/` is generated by `dfx generate learnsphere_backend`. Run it after
+  you change the backend's public interface. Do not edit those files by hand.
+- The mainnet deploy steps are in `docs/deploy-day.md`. LearnSphere is not deployed to mainnet.
