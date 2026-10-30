@@ -149,7 +149,7 @@ Use three terminals, all in the cloned folder.
    ```sh
    dfx start --clean
    ```
-   Wait until it prints the replica URL (`http://localhost:4943`).
+   Wait until it prints `Replica API running on 127.0.0.1:4943`.
 3. **Terminal 2:** deploy the backend, the local Internet Identity and the tutor mock:
    ```sh
    dfx deploy learnsphere_backend
