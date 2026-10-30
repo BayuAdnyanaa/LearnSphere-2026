@@ -105,52 +105,56 @@ Follow these instructions to get a local copy up and running for development and
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v16.x or later)
-- [DFINITY Canister SDK](https://internetcomputer.org/docs/current/developer-docs/setup/install/) (`dfx`)
-- [Python](https://www.python.org/downloads/) (v3.8 or later)
+- [Node.js](https://nodejs.org/) (v20 or later)
+- `dfx` **0.31.0** (pinned in `dfx.json`). Install it with [dfxvm](https://github.com/dfinity/dfxvm): `sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"`, then `dfxvm install 0.31.0`. dfx 0.32.0 cannot start the local network (PocketIC returns 400).
+- On Windows: WSL2 with Ubuntu. `dfx` does not run on Windows directly.
+- [Python](https://www.python.org/downloads/) (v3.8 or later), only for the chat agent.
 
 ### Installation & Setup
 
-1.  **Clone the repository:**
+On Windows, run `dfx` inside WSL and run `npm` and Vite on Windows. Do not share one `node_modules` folder between Windows and WSL.
+
+1.  **Clone the repository** (outside OneDrive; enable long paths on Windows):
     ```sh
-    git clone [https://github.com/your-username/learnsphere.git](https://github.com/your-username/learnsphere.git)
-    cd learnsphere
+    git clone -c core.longpaths=true https://github.com/BayuAdnyanaa/LearnSphere.git
     ```
 
-2.  **Install Frontend Dependencies:**
+2.  **Install frontend dependencies** (Windows or your normal shell):
     ```sh
     cd frontend
-    npm install
+    npm ci
     ```
 
-3.  **Setup the Backend Canister:**
-    - Start a local replica of the Internet Computer network:
-        ```sh
-        dfx start --background --clean
-        ```
-    - Deploy the `learnsphere` canister:
-        ```sh
-        dfx deploy
-        ```
+3.  **Start the local network** (WSL / Linux / macOS), and keep this terminal open:
+    ```sh
+    dfx start --clean
+    ```
+    On WSL, run `dfx start` in the foreground. WSL stops the Ubuntu VM shortly after the last `wsl.exe` command exits, so `dfx start --background` from a one-off `wsl -- ...` call dies with it.
 
-4.  **Setup the AI Agent:**
-    - Navigate to the agent directory and install Python dependencies:
-        ```sh
-        cd ../backend/src/agent
-        pip install -r requirements.txt
-        ```
-    - Run the agent (make sure to update the agent address in `ChatAssistant.jsx` if needed):
-        ```sh
-        python agent.py
-        ```
+4.  **Deploy the backend and the local Internet Identity** (second WSL terminal, from the repo root):
+    ```sh
+    dfx deploy learnsphere_backend
+    dfx deploy internet_identity
+    dfx generate learnsphere_backend
+    ```
+    `dfx` writes the canister IDs to `.env` at the repo root. Vite reads that file (`envDir: ".."` in `frontend/vite.config.js`).
 
-5.  **Run the Frontend:**
-    - Navigate back to the frontend directory and start the development server:
-        ```sh
-        cd ../../../frontend
-        npm run dev
-        ```
+    The `internet_identity` canister is the II **dev** build from release `release-2026-02-28` with the captcha off and dummy authentication on, so you can create test identities without a passkey. It is for local use only. On mainnet the app uses the public II.
 
-The application should now be running on `http://localhost:5173`.
+    To upgrade the backend and keep user progress:
+    ```sh
+    dfx canister install learnsphere_backend --mode upgrade --wasm-memory-persistence keep
+    ```
+
+5.  **Run the frontend:**
+    ```sh
+    cd frontend
+    npm run dev
+    ```
+    Open `http://localhost:5173` and log in with Internet Identity.
+
+6.  **AI agent (optional, being replaced):** the Fetch.ai agent in `backend/src/agent` is not part of the local setup. It will be replaced later.
+
+The local network is ephemeral: `dfx start --clean` or stopping the network deletes all progress.
 
 ---
