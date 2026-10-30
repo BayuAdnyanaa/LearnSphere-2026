@@ -10,16 +10,14 @@ export default function Welcome({ onLogin, reduced, error }) {
   const top = vp.h - 900 * s;
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-clip">
       <div aria-hidden="true" className="absolute" style={{ left, top, width: 1440, height: 900, transform: `scale(${s})`, transformOrigin: "0 0" }}>
-        <div className="ls-anim-breathe absolute rounded-full" style={{ left: 160, top: 690, width: 560, height: 40, background: "oklch(0.62 0.24 350)", filter: "blur(26px)", opacity: 0.6, animationDuration: "7s" }} />
-        <div className="ls-anim-breathe absolute rounded-full" style={{ left: 740, top: 684, width: 600, height: 36, background: "oklch(0.72 0.14 55)", filter: "blur(26px)", opacity: 0.55, animationDuration: "9s", animationDelay: "-3s" }} />
         <div
           className="absolute rounded-full"
           style={{
             left: 720 - 1600, top: 735, width: 3200, height: 3200,
             background: "radial-gradient(circle at 50% 0%, #1d1020 0%, #0a080d 12%, #07060b 30%)",
-            boxShadow: "0 0 0 1px rgba(255,222,200,.7), 0 -6px 30px oklch(0.66 0.24 350 / .8), 0 -30px 120px oklch(0.6 0.22 340 / .45), 0 -16px 200px oklch(0.72 0.14 55 / .35)",
+            boxShadow: "0 0 0 1px rgba(255,222,200,.7), 0 -6px 30px oklch(0.66 0.24 350 / .8), 0 -30px 120px oklch(0.6 0.22 340 / .45)",
           }}
         />
         <AuroraCanvas reduced={reduced} scale={s} />

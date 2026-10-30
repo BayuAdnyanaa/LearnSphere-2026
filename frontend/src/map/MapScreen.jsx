@@ -17,7 +17,7 @@ function DesktopMap({ model, vp, onSelect, selectedId, reduced, onLogout, onAnch
   }, [left, top, s, onAnchor]);
 
   return (
-    <div className="fixed inset-0 overflow-hidden">
+    <div className="fixed inset-0 overflow-clip">
       <div className="absolute" style={{ left, top, width: 1440, height: 900, transform: `scale(${s})`, transformOrigin: "0 0" }}>
         <StarStage model={model} onSelect={onSelect} selectedId={selectedId} reduced={reduced} scale={s} />
         <header className="absolute inset-x-0 top-0 flex h-[84px] items-center justify-between px-12">
