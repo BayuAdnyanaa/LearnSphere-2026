@@ -3,18 +3,17 @@ import "./App.css";
 
 // ICP and DFINITY imports
 import { AuthClient } from "@dfinity/auth-client";
+import { createActor, canisterId } from "./declarations";
 
-// Try to import the generated declarations
-let learnsphere;
-try {
-  // Try the standard path first
-  const declarations = await import("./declarations");
-  learnsphere = declarations.learnsphere;
-  console.log("✅ Using generated declarations");
-} catch (error) {
-  console.warn("❌ Could not import declarations:", error);
-  // We'll handle this with manual setup below
-}
+const isLocal = process.env.DFX_NETWORK !== "ic";
+
+// Locally, II runs as its own canister on the replica; on mainnet use the public one
+const identityProvider = isLocal
+  ? `http://${process.env.CANISTER_ID_INTERNET_IDENTITY}.localhost:4943`
+  : "https://identity.ic0.app";
+
+// In dev, calls go through the Vite /api proxy to the local replica
+const agentHost = isLocal ? window.location.origin : "https://icp-api.io";
 
 // Your existing components
 import Header from "./components/Header";
@@ -61,71 +60,22 @@ function App() {
 
       console.log("👤 User Principal:", userPrincipal);
 
-      // Try to use the generated backend first
-      if (learnsphere) {
-        console.log("✅ Using generated backend actor");
-        setActor(learnsphere);
-      } else {
-        console.log("⚠️ Generated backend not available, using manual setup");
-        // Manual actor creation as fallback
-        const { Actor, HttpAgent } = await import("@dfinity/agent");
-        
-        const agent = new HttpAgent({
-          host: "http://127.0.0.1:4943",
-          identity,
-        });
-        
-        // Fetch root key for local development
-        await agent.fetchRootKey();
-        
-        // Create actor manually with correct canister ID
-        const canisterId = "uxrrr-q7777-77774-qaaaq-cai"; // Update this with your actual canister ID
-        
-        // Manual IDL factory - FIXED with category field
-        const idlFactory = ({ IDL }) => {
-          const Quest = IDL.Record({
-            id: IDL.Nat,
-            title: IDL.Text,
-            description: IDL.Text,
-            link: IDL.Text,
-            rewardAmount: IDL.Nat,
-            prerequisite: IDL.Opt(IDL.Nat),
-            category: IDL.Text, // ✅ ADDED: Missing category field!
-          });
-          
-          const UserStats = IDL.Record({
-            tokens: IDL.Nat,
-            questsCompleted: IDL.Vec(IDL.Nat),
-            experience: IDL.Nat,
-          });
+      // Build the actor with the logged-in identity, so each user has their own principal
+      const { HttpAgent } = await import("@dfinity/agent");
+      const agent = await HttpAgent.create({
+        host: agentHost,
+        identity,
+        shouldFetchRootKey: isLocal,
+      });
+      const userActor = createActor(canisterId, { agent });
 
-          return IDL.Service({
-            greet: IDL.Func([IDL.Text], [IDL.Text], ["query"]),
-            getAllQuests: IDL.Func([], [IDL.Vec(Quest)], ["query"]),
-            getAllQuestsWithStatus: IDL.Func([], [IDL.Vec(IDL.Tuple(Quest, IDL.Text))], []),
-            getUserStats: IDL.Func([], [UserStats], []),
-            getNextQuest: IDL.Func([], [IDL.Opt(Quest)], []),
-            completeQuest: IDL.Func([IDL.Nat], [IDL.Text], []),
-            getQuestCount: IDL.Func([], [IDL.Nat], ["query"]),
-            getQuestById: IDL.Func([IDL.Nat], [IDL.Opt(Quest)], ["query"]),
-          });
-        };
-
-        const manualActor = Actor.createActor(idlFactory, {
-          agent,
-          canisterId,
-        });
-        
-        setActor(manualActor);
-      }
-
+      setActor(userActor);
       setIsAuthenticated(true);
       setPrincipal(userPrincipal);
-      
+
       console.log("📊 Loading data from canister...");
-      // Load data with a small delay to ensure actor is ready
-      setTimeout(() => loadData(learnsphere || manualActor), 100);
-      
+      await loadData(userActor);
+
     } catch (err) {
       console.error("❌ Authentication handling failed:", err);
       setError("Failed to create actor: " + err.message);
@@ -138,7 +88,7 @@ function App() {
       const authClient = await AuthClient.create();
       
       await authClient.login({
-        identityProvider: "https://identity.ic0.app",
+        identityProvider,
         onSuccess: () => {
           console.log("✅ Login successful");
           handleAuthenticated(authClient);
