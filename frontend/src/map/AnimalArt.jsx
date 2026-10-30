@@ -23,23 +23,53 @@ function Turtle() {
   );
 }
 
+// Splayed primary feathers ("fingers") along the wing tip, from the leading edge end
+// lead to the trailing edge end trail, pointing along dir
+function fingers(lead, trail, dir, lengths) {
+  const n = lengths.length;
+  const f = (v) => v.toFixed(1);
+  const parts = [];
+  for (let i = 0; i < n; i++) {
+    const a0 = i / n, a1 = (i + 1) / n;
+    const b1 = [lead[0] + (trail[0] - lead[0]) * a0, lead[1] + (trail[1] - lead[1]) * a0];
+    const b2 = [lead[0] + (trail[0] - lead[0]) * a1, lead[1] + (trail[1] - lead[1]) * a1];
+    // Fan the feathers: the leading one turns forward, the last one turns back
+    const turn = ((i - (n - 1) / 2) * 11 * Math.PI) / 180;
+    const d = [dir[0] * Math.cos(turn) - dir[1] * Math.sin(turn), dir[0] * Math.sin(turn) + dir[1] * Math.cos(turn)];
+    const len = lengths[i];
+    const mid = [(b1[0] + b2[0]) / 2, (b1[1] + b2[1]) / 2];
+    const tip = [mid[0] + d[0] * len, mid[1] + d[1] * len];
+    const s1 = [b1[0] + d[0] * len * 0.7, b1[1] + d[1] * len * 0.7];
+    const s2 = [b2[0] + d[0] * len * 0.7, b2[1] + d[1] * len * 0.7];
+    parts.push(`M${f(b1[0])},${f(b1[1])} L${f(s1[0])},${f(s1[1])} Q${f(tip[0])},${f(tip[1])} ${f(s2[0])},${f(s2[1])} L${f(b2[0])},${f(b2[1])} Z`);
+  }
+  return parts.join(" ");
+}
+
+const NEAR_FINGERS = fingers([616, 396], [566, 416], [-0.1, -0.99], [56, 62, 56, 46, 36]);
+const FAR_FINGERS = fingers([546, 402], [508, 424], [-0.36, -0.93], [44, 50, 45, 37, 29]);
+
 function Raven() {
   return (
     <>
-      {/* far wing */}
-      <path className="ls-body" d="M566,540 C556,510 548,480 546,452 C536,420 520,384 500,346 C514,350 528,362 540,378 C552,396 566,420 578,450 C584,470 586,500 584,528 Z" />
-      <path className="ls-detail" d="M508,358 L532,378 M520,380 L544,396 M534,410 L558,424 M548,446 L572,456 M562,484 L580,490" />
-      {/* tail fan */}
-      <path className="ls-body" d="M498,646 L440,690 C452,700 470,710 484,712 L512,654 Z" />
-      <path className="ls-detail" d="M500,650 L452,697 M505,652 L468,707" />
-      {/* body, neck and head */}
-      <path className="ls-body" d="M494,652 C486,628 520,580 560,548 C578,534 600,524 612,520 C612,540 598,566 578,588 C556,612 524,640 506,656 Z" />
-      <path className="ls-body" d="M590,526 C604,500 618,470 632,450 C640,438 650,426 664,424 C676,424 680,436 674,446 C664,462 646,484 616,532 Z" />
-      <path className="ls-body" d="M670,424 L706,414 L674,440 Z" />
-      <path className="ls-detail" d="M520,628 C548,604 572,580 596,548 M610,500 C622,482 634,466 646,452 M660,428 a2.5,2.5 0 1,0 0.1,0" />
-      {/* near wing */}
-      <path className="ls-body" d="M586,530 C592,504 598,480 600,458 C602,420 600,382 594,340 C608,350 618,370 624,394 C630,420 628,450 620,480 C612,500 604,516 596,534 Z" />
-      <path className="ls-detail" d="M600,372 L620,384 M602,404 L626,414 M604,436 L626,444 M604,466 L622,472 M600,494 L614,498" />
+      {/* far wing: broad, raised, with fingered tips */}
+      <path className="ls-body" d={FAR_FINGERS} />
+      <path className="ls-body" d="M588,504 C580,476 566,440 546,402 L508,424 C518,446 524,462 532,470 C538,480 540,490 548,494 C554,504 558,514 566,522 Z" />
+      <path className="ls-detail" d="M546,414 C556,438 568,462 578,488 M530,424 C542,448 552,470 564,500" />
+      {/* wedge tail: the middle feathers are the longest */}
+      <path className="ls-body" d="M522,610 L446,688 L456,712 L480,706 L542,630 Z" />
+      <path className="ls-detail" d="M528,616 L452,700 M534,622 L468,709" />
+      {/* body */}
+      <path className="ls-body" d="M520,626 C522,590 552,540 594,500 C612,482 628,466 642,450 C656,458 660,474 650,492 C630,526 596,570 556,616 C544,628 530,634 520,626 Z" />
+      {/* head, heavy beak and shaggy throat */}
+      <path className="ls-body" d="M636,452 C632,436 640,420 656,416 C668,414 676,422 676,432 C676,446 664,456 650,462 Z" />
+      <path className="ls-body" d="M668,418 C682,410 696,408 708,412 C706,418 700,422 694,424 C686,430 678,436 670,442 Z" />
+      <path className="ls-detail" d="M670,430 L700,420 M658,428 a2.5,2.5 0 1,0 0.1,0 M646,462 l-4,8 l6,-3 l-2,9 l6,-6 l-1,9 M596,520 C578,548 560,574 540,600" />
+      {/* near wing, over the body */}
+      <path className="ls-body" d={NEAR_FINGERS} />
+      {/* convex leading edge, scalloped trailing edge of secondaries */}
+      <path className="ls-body" d="M612,492 C626,466 626,430 616,396 L566,416 C566,432 572,440 570,452 C576,462 572,474 578,484 C584,494 580,506 588,520 Z" />
+      <path className="ls-detail" d="M610,410 C616,436 616,462 610,486 M594,414 C598,442 600,470 598,500 M580,420 C582,446 586,474 590,506" />
     </>
   );
 }
