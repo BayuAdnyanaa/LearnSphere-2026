@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 
-// The chat panel pulls in @cosmjs, so it loads only when the learner opens it
+// The chat panel loads only when the learner opens it
 const TutorPanel = lazy(() => import("./TutorPanel"));
 
 // The floating glass orb on every screen

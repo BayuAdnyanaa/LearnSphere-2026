@@ -1,11 +1,5 @@
-// The open tutor chat. The chat logic is the legacy Fetch.ai agent (Agentverse mailbox),
-// unchanged; this file only gives it the 2a glass look. Loaded lazily with @cosmjs.
+// The open tutor chat. The legacy Fetch.ai agent is gone; the canister tutor replaces it.
 import { useEffect, useRef, useState } from "react";
-import { Bip39, Random } from "@cosmjs/crypto";
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-
-const AGENT_ADDRESS = "agent1qghztqzczs2ge47xz7xr3vduust7zagw4zfdefpeg74e253paquf6gwr0lu";
-const AGENTVERSE_URL = "https://agentverse.ai/v1";
 
 // Topic prompts only fill the message box; the learner still sends it
 const TOPICS = ["What is a canister?", "How do principals work?", "What does a uAgent do?"];
@@ -13,27 +7,11 @@ const TOPICS = ["What is a canister?", "How do principals work?", "What does a u
 export default function TutorPanel({ onClose, next, onOpenQuest }) {
   const [userInput, setUserInput] = useState("");
   const [messages, setMessages] = useState([]);
-  const [userWallet, setUserWallet] = useState(null);
-  const [userAddress, setUserAddress] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = false;
   const endRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    const createWallet = async () => {
-      try {
-        const entropy = Random.getBytes(32);
-        const mnemonic = Bip39.encode(entropy).toString();
-        const wallet = await DirectSecp256k1HdWallet.fromMnemonic(mnemonic, { prefix: "fetch" });
-        const [{ address }] = await wallet.getAccounts();
-        setUserWallet(wallet);
-        setUserAddress(address);
-        setMessages([{ text: "Hello! I'm the LearnSphere assistant. How can I help you today?", sender: "agent" }]);
-      } catch (err) {
-        console.error("❌ Error creating wallet:", err);
-      }
-    };
-    createWallet();
     inputRef.current?.focus();
   }, []);
 
@@ -50,75 +28,10 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const pollForResponse = (address) => {
-    let attempts = 0;
-    const maxAttempts = 30;
-    const intervalId = setInterval(async () => {
-      try {
-        const response = await fetch(`${AGENTVERSE_URL}/peek/${address}`);
-        if (response.status === 200) {
-          const incoming = await response.json();
-          const messagePayload = JSON.parse(incoming.payload);
-          const responseText = messagePayload.content.find((c) => c.type === "TextContent")?.text;
-          if (responseText) setMessages((prev) => [...prev, { text: responseText, sender: "agent" }]);
-          clearInterval(intervalId);
-          setIsLoading(false);
-          return;
-        }
-      } catch (error) {
-        console.error("Error polling for messages:", error);
-        clearInterval(intervalId);
-        setIsLoading(false);
-      }
-      attempts++;
-      if (attempts >= maxAttempts) {
-        clearInterval(intervalId);
-        setMessages((prev) => [...prev, { text: "Sorry, I didn't receive a response. The agent might be busy. Please try again.", sender: "agent" }]);
-        setIsLoading(false);
-      }
-    }, 1000);
-  };
-
-  const handleSendMessage = async () => {
-    if (!userInput.trim() || !userWallet || !userAddress || isLoading) return;
-    const newMessages = [...messages, { text: userInput, sender: "user" }];
-    setMessages(newMessages);
+  const handleSendMessage = () => {
+    if (!userInput.trim()) return;
+    setMessages((prev) => [...prev, { text: userInput, sender: "user" }, { text: "The tutor is being rebuilt and cannot answer yet.", sender: "note" }]);
     setUserInput("");
-    setIsLoading(true);
-    try {
-      const message = {
-        type: "ChatMessage",
-        content: [{ type: "TextContent", text: userInput }],
-        timestamp: new Date().toISOString(),
-        msg_id: crypto.randomUUID(),
-      };
-      const envelope = {
-        version: 1,
-        sender: userAddress,
-        target: AGENT_ADDRESS,
-        session: crypto.randomUUID(),
-        protocol: "uagents.contrib.chat.Chat",
-        payload: JSON.stringify(message),
-        expires: Math.floor(Date.now() / 1000) + 300,
-      };
-      const envelopeBytes = new TextEncoder().encode(JSON.stringify(envelope));
-      const { signature } = await userWallet.signDirect(userAddress, {
-        bodyBytes: envelopeBytes,
-        authInfoBytes: new Uint8Array(),
-        chainId: "",
-        accountNumber: 0,
-      });
-      await fetch(`${AGENTVERSE_URL}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ envelope: JSON.stringify(envelope), signature: signature.signature, public_key: signature.pub_key.value }),
-      });
-      pollForResponse(userAddress);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      setMessages([...newMessages, { text: "Sorry, I couldn't send your message. Please try again.", sender: "agent" }]);
-      setIsLoading(false);
-    }
   };
 
   return (

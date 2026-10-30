@@ -40,9 +40,9 @@ This project is a full-stack dApp combining a decentralized backend with a moder
 | Category      | Technology                                                                                                  |
 | :------------ | :---------------------------------------------------------------------------------------------------------- |
 | **Frontend** | [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Tailwind CSS](https://tailwindcss.com/)           |
-| **Backend** | [Motoko](https://internetcomputer.org/docs/current/motoko/main/motoko), [Python](https://www.python.org/)     |
+| **Backend** | [Motoko](https://internetcomputer.org/docs/current/motoko/main/motoko)                                      |
 | **Blockchain**| [Internet Computer (ICP)](https://internetcomputer.org/)                                                      |
-| **AI Agent** | [Fetch.ai (uAgents)](https://fetch.ai/), [Agentverse](https://agentverse.ai/)                                 |
+| **AI Tutor** | [DFINITY LLM canister](https://docs.internetcomputer.org/guides/backends/ai-inference/) (Llama 3.1 8B)            |
 
 ---
 
@@ -57,7 +57,7 @@ LearnSphere is a full-stack decentralized application composed of three core com
     - Tracking user profiles, progress, and rewards on-chain.
     - Handling the logic for quest completion and reward distribution.
 
-3.  **AI Agent (Fetch.ai uAgent)**: A Python-based AI agent that functions as a helpful chat assistant. It is hosted on the Agentverse and communicates with the frontend via signed messages. This allows for a secure, decentralized conversation layer where the agent can provide guidance and answer user questions about the quests and related topics.
+3.  **AI Tutor**: The backend canister forwards a learner's question, with the titles and reading pages of their quests, to the DFINITY LLM canister. The tutor never receives quiz questions or answers. The canister limits each learner to 20 questions a day and the whole app to 1,000.
 
 ---
 
@@ -69,12 +69,6 @@ LearnSphere is a full-stack decentralized application composed of three core com
 -   **Stable Memory**: User data and quest information are stored in stable variables, ensuring that all state is preserved across canister upgrades without data loss.
 -   **Internet Identity**: User authentication and session management are tied to the user's Principal ID, a core feature of ICP's identity layer. This provides a secure and anonymous way to manage user accounts.
 -   **On-Chain Data Storage**: All user progress, including completed quests, tokens, and experience points, is stored directly on the blockchain, providing a transparent and tamper-proof record.
-
-### Fetch.ai Features
-
--   **uAgents (Micro-Agents)**: The chat assistant is built using the `uagents` library, allowing for a lightweight and modular agent that can handle specific tasks.
--   **Agentverse**: The agent is registered and hosted on the Agentverse, which provides it with a stable address and facilitates communication with the outside world.
--   **Cryptographic Signing**: All communication between the user's temporary wallet in the frontend and the agent is secured using cryptographic signatures (`DirectSecp256k1HdWallet`), ensuring that messages are authentic and have not been tampered with.
 
 ---
 
@@ -152,7 +146,7 @@ On Windows, run `dfx` inside WSL and run `npm` and Vite on Windows. Do not share
     ```
     Open `http://localhost:5173` and log in with Internet Identity.
 
-6.  **AI agent (optional, being replaced):** the Fetch.ai agent in `backend/src/agent` is not part of the local setup. It will be replaced later.
+6.  **AI tutor:** the LLM canister does not run on a local replica. Locally, `dfx deploy` builds a mock (`backend/src/llm_mock`) that returns a fixed reply. On mainnet the `llm` canister maps to the real one.
 
 The local network is ephemeral: `dfx start --clean` or stopping the network deletes all progress.
 
