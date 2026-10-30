@@ -53,6 +53,10 @@ persistent actor LearnSphere {
     };
 
     private func getOrCreateUser(caller: Principal) : UserStats {
+        // Without login every visitor would share the anonymous principal and its progress
+        if (Principal.isAnonymous(caller)) {
+            Debug.trap("Please log in: anonymous callers have no progress record.");
+        };
         switch (userStats.get(caller)) {
             case (?stats) { stats };
             case (null) {
