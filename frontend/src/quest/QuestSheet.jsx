@@ -16,7 +16,7 @@ function Detail({ star, wait, linkOpened, onLinkOpened, onStartQuiz }) {
     <div className="flex flex-col gap-5">
       <div className="flex items-start gap-4">
         <span className="relative mt-1 grid h-10 w-10 shrink-0 place-items-center"><StarGlyph state={star.state} /></span>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 pr-16">
           <Eyebrow>{track.figure}, {track.name}</Eyebrow>
           <h2 id="ls-sheet-title" tabIndex={-1} className="ls-display m-0 text-[32px] leading-[1.05] outline-none">{q.title}</h2>
         </div>

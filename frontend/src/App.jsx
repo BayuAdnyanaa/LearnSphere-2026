@@ -193,6 +193,10 @@ function App() {
     try {
       const result = await actor.submitQuiz(BigInt(selectedId), answers.map((a) => BigInt(a)));
       console.log("🧩 Quiz result:", result);
+      // The reply carries the new wait; use it now, so the result never shows a wait of 0
+      // while the cooldown list reloads
+      const waited = result.failed ?? result.wait;
+      if (waited) setCooldowns((current) => ({ ...current, [selectedId]: Number(waited.retryAfterSeconds) }));
       setQuizResult(result);
       setStep("result");
       await loadData(actor, { quiet: true });

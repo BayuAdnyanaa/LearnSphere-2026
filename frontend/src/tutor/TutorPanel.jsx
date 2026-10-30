@@ -41,6 +41,15 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
+  // Escape closes the panel wherever focus is, unless a quest dialog is open over it
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && !document.querySelector("dialog[open]")) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const pollForResponse = (address) => {
     let attempts = 0;
     const maxAttempts = 30;
@@ -116,7 +125,6 @@ export default function TutorPanel({ onClose, next, onOpenQuest }) {
     <section
       role="dialog"
       aria-label="AI tutor"
-      onKeyDown={(e) => e.key === "Escape" && onClose()}
       className="ls-glass ls-anim-rise fixed inset-x-3 bottom-3 z-50 flex max-h-[min(640px,calc(100dvh-24px))] flex-col overflow-hidden rounded-ls-panel sm:inset-x-auto sm:bottom-28 sm:right-12 sm:w-[400px]"
     >
       {/* A violet beam from above onto the orb: the one light source in this panel */}
