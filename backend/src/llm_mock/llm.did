@@ -1,0 +1,69 @@
+// The part of the DFINITY LLM canister interface (w36hm-eqaaa-aaaal-qr76a-cai) that LearnSphere
+// uses, copied from its on-chain candid:service metadata on 2026-10-30.
+// ---- v1_chat types ----
+
+type chat_request_v1 = record {
+  // Valid values: "llama3.1:8b"
+  model: text;
+  messages: vec chat_message_v1;
+  tools: opt vec tool;
+};
+
+type chat_message_v1 = variant {
+  user: record {
+    content: text;
+  };
+  system: record {
+    content: text;
+  };
+  assistant: assistant_message;
+  tool: record {
+    content: text;
+    tool_call_id: text;
+  }
+};
+
+type tool_call_argument = record {
+  name: text;
+  value: text;
+};
+
+type assistant_message = record {
+  content: opt text;
+  tool_calls: vec record {
+    id: text;
+    function: record {
+      name: text;
+      arguments: vec tool_call_argument;
+    }
+  }
+};
+
+type chat_response_v1 = record {
+  message: assistant_message;
+};
+
+type parameters = record {
+  "type": text;
+  properties: opt vec property;
+  required: opt vec text;
+};
+
+type property = record {
+  "type": text;
+  name: text;
+  description: opt text;
+  "enum": opt vec text;
+};
+
+type tool = variant {
+  function: record {
+    name: text;
+    description: opt text;
+    parameters: opt parameters;
+  };
+};
+
+service : {
+  v1_chat: (chat_request_v1) -> (chat_response_v1);
+}

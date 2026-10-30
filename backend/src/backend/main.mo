@@ -7,7 +7,14 @@ import Debug "mo:base/Debug";
 import Iter "mo:base/Iter";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
+import Blob "mo:base/Blob";
+import Char "mo:base/Char";
+import Error "mo:base/Error";
+import Nat32 "mo:base/Nat32";
 import Quizzes "Quizzes";
+import Tutor "Tutor";
+// The DFINITY LLM canister on mainnet; a local mock (backend/src/llm_mock) on a local replica
+import LLM "canister:llm";
 
 persistent actor LearnSphere {
 
@@ -81,9 +88,22 @@ persistent actor LearnSphere {
     private stable var attemptEntries : [(Text, AttemptState)] = [];
     private transient var attempts = HashMap.HashMap<Text, AttemptState>(10, Text.equal, Text.hash);
 
+    // Tutor use per learner for the current day, and for the whole app
+    type TutorUse = { day : Nat; count : Nat; lastAt : Int };
+    private stable var tutorUseEntries : [(Principal, TutorUse)] = [];
+    private transient var tutorUse = HashMap.HashMap<Principal, TutorUse>(10, Principal.equal, Principal.hash);
+    private stable var tutorDay : Nat = 0;
+    private stable var tutorDayCount : Nat = 0;
+    // The OpenRouter proxy stays off until a controller sets the mode to #proxy
+    private stable var tutorMode : Tutor.Mode = #llmCanister;
+    private stable var tutorProxyUrl : Text = "";
+    // Not confidential: node operators can read canister memory. The proxy has its own caps.
+    private stable var tutorProxySecret : Text = "";
+
     system func preupgrade() {
         userStatsEntries := Iter.toArray(userStats.entries());
         attemptEntries := Iter.toArray(attempts.entries());
+        tutorUseEntries := Iter.toArray(tutorUse.entries());
     };
 
     system func postupgrade() {
@@ -91,6 +111,8 @@ persistent actor LearnSphere {
         userStatsEntries := [];
         attempts := HashMap.fromIter<Text, AttemptState>(attemptEntries.vals(), attemptEntries.size(), Text.equal, Text.hash);
         attemptEntries := [];
+        tutorUse := HashMap.fromIter<Principal, TutorUse>(tutorUseEntries.vals(), tutorUseEntries.size(), Principal.equal, Principal.hash);
+        tutorUseEntries := [];
     };
 
     private func getOrCreateUser(caller: Principal) : UserStats {
@@ -275,6 +297,219 @@ persistent actor LearnSphere {
         });
         Debug.print("submitQuiz passed by: " # Principal.toText(caller) # " quest " # debug_show(questId));
         #passed { tokensEarned = quest.rewardAmount; experienceEarned }
+    };
+
+    // ---- Tutor ----
+
+    // The suggested order of the quests, as on the star map
+    transient let PATH_ORDER : [Nat] = [1, 3, 5, 12, 2, 4, 6, 7, 8, 9, 10, 11];
+    transient let DAY_NS : Int = 86_400_000_000_000;
+
+    private func requireController(p : Principal) {
+        if (not Principal.isController(p)) { Debug.trap("Only a controller of this canister may do this.") };
+    };
+
+    private func today() : Nat { Int.abs(Time.now() / DAY_NS) };
+
+    private func secondsToTomorrow() : Nat {
+        Int.abs(((today() + 1) * DAY_NS - Time.now()) / 1_000_000_000) + 1
+    };
+
+    private func trackName(id : Nat) : Text {
+        if (arrayContains([1, 3, 5, 12], id)) { "Internet Computer" } else if (arrayContains([2, 4, 6], id)) { "AI Agents" } else { "Web3" }
+    };
+
+    private func facts(q : Quest) : Tutor.QuestFacts {
+        { title = q.title; description = q.description; link = q.link; track = trackName(q.id) }
+    };
+
+    // Only quest titles, descriptions and links: the tutor never sees quiz data
+    private func learnerContext(caller : Principal, stats : UserStats) : Tutor.LearnerContext {
+        let isOpen = func(q : Quest) : Bool {
+            if (arrayContains(stats.questsCompleted, q.id)) { return false };
+            switch (q.prerequisite) { case (null) { true }; case (?p) { arrayContains(stats.questsCompleted, p) } }
+        };
+        let completed = Array.filter<Quest>(quests, func(q) { arrayContains(stats.questsCompleted, q.id) });
+        let open = Array.filter<Quest>(quests, isOpen);
+        var suggested : ?Tutor.QuestFacts = null;
+        label pick for (id in PATH_ORDER.vals()) {
+            switch (Array.find<Quest>(open, func(q) { q.id == id })) {
+                case (?q) {
+                    if (secondsUntilRetry(attemptKey(caller, q.id)) == 0) { suggested := ?facts(q); break pick };
+                };
+                case (null) {};
+            };
+        };
+        {
+            completed = Array.map<Quest, Tutor.QuestFacts>(completed, facts);
+            suggested;
+            open = Array.map<Quest, Tutor.QuestFacts>(open, facts);
+        }
+    };
+
+    // Counts the call against the learner's and the app's daily limits, or says which limit stops it.
+    // The counters move before any model call, so parallel calls cannot slip past a limit.
+    private func takeTutorCall(caller : Principal) : ?Tutor.Reply {
+        let day = today();
+        if (tutorDay != day) { tutorDay := day; tutorDayCount := 0 };
+        if (tutorDayCount >= Tutor.GLOBAL_PER_DAY) {
+            return ?#limited { reason = "The tutor is resting: today's limit for everyone is reached. Try again tomorrow."; retryAfterSeconds = secondsToTomorrow() };
+        };
+        let use = switch (tutorUse.get(caller)) {
+            case (?u) { if (u.day == day) { u } else { { day; count = 0; lastAt = u.lastAt } } };
+            case (null) { { day; count = 0; lastAt = 0 } };
+        };
+        if (use.count >= Tutor.PER_LEARNER_PER_DAY) {
+            return ?#limited { reason = "You asked " # Nat.toText(Tutor.PER_LEARNER_PER_DAY) # " questions today. Try again tomorrow."; retryAfterSeconds = secondsToTomorrow() };
+        };
+        let sinceLast = (Time.now() - use.lastAt) / 1_000_000_000;
+        if (sinceLast < Tutor.MIN_SECONDS_BETWEEN) {
+            return ?#limited { reason = "Wait a few seconds between questions."; retryAfterSeconds = Int.abs(Tutor.MIN_SECONDS_BETWEEN - sinceLast) };
+        };
+        tutorUse.put(caller, { day; count = use.count + 1; lastAt = Time.now() });
+        tutorDayCount += 1;
+        null
+    };
+
+    // Ask the tutor. turns: up to 6 earlier messages of this conversation, oldest first.
+    public shared(msg) func askTutor(question : Text, turns : [Tutor.Turn]) : async Tutor.Reply {
+        let caller = msg.caller;
+        let stats = getOrCreateUser(caller);
+        switch (Tutor.checkQuestion(question, turns)) {
+            case (?reason) { return #rejected { reason } };
+            case (null) {};
+        };
+        if (tutorMode == #off) { return #unavailable { reason = "The tutor is switched off for now." } };
+        switch (takeTutorCall(caller)) {
+            case (?limited) { return limited };
+            case (null) {};
+        };
+        let messages = Tutor.buildMessages(learnerContext(caller, stats), turns, question);
+        if (tutorMode == #proxy) { return await askProxy(messages) };
+        try {
+            let response = await LLM.v1_chat({ model = Tutor.MODEL; messages; tools = null });
+            switch (response.message.content) {
+                case (?text) { #ok { text } };
+                case (null) { #unavailable { reason = "The tutor gave no answer. Try again." } };
+            }
+        } catch (e) {
+            Debug.print("askTutor: LLM canister error: " # Error.message(e));
+            #unavailable { reason = "The tutor cannot answer right now. Try again later." }
+        }
+    };
+
+    // Controllers only: where the answers come from (#llmCanister, #proxy or #off)
+    public shared(msg) func setTutorMode(mode : Tutor.Mode) : async () {
+        requireController(msg.caller);
+        tutorMode := mode;
+    };
+
+    // Controllers only: the proxy address and its shared secret. Call again to rotate the secret.
+    public shared(msg) func setTutorProxy(url : Text, secret : Text) : async () {
+        requireController(msg.caller);
+        tutorProxyUrl := url;
+        tutorProxySecret := secret;
+    };
+
+    // Controllers only: today's tutor calls, so a price change cannot drain cycles unnoticed
+    public shared query(msg) func tutorUsageToday() : async { day : Nat; calls : Nat; cap : Nat; learners : Nat; mode : Tutor.Mode; proxyConfigured : Bool } {
+        requireController(msg.caller);
+        let day = today();
+        let learners = Iter.size(Iter.filter<TutorUse>(tutorUse.vals(), func(u) { u.day == day }));
+        {
+            day;
+            calls = if (tutorDay == day) { tutorDayCount } else { 0 };
+            cap = Tutor.GLOBAL_PER_DAY;
+            learners;
+            mode = tutorMode;
+            proxyConfigured = tutorProxyUrl != "" and tutorProxySecret != "";
+        }
+    };
+
+    // ---- Tutor fallback: the OpenRouter proxy, through one HTTPS outcall ----
+
+    type HttpHeader = { name : Text; value : Text };
+    type HttpResponse = { status : Nat; headers : [HttpHeader]; body : Blob };
+    type HttpRequest = {
+        url : Text;
+        max_response_bytes : ?Nat64;
+        method : { #get; #head; #post };
+        headers : [HttpHeader];
+        body : ?Blob;
+        transform : ?{ function : shared query ({ response : HttpResponse; context : Blob }) -> async HttpResponse; context : Blob };
+        is_replicated : ?Bool;
+    };
+    transient let management : actor { http_request : HttpRequest -> async HttpResponse } = actor ("aaaaa-aa");
+    // Enough for one outcall on a large subnet; the unused cycles come back
+    transient let OUTCALL_CYCLES : Nat = 1_000_000_000;
+
+    private func jsonString(t : Text) : Text {
+        let hex = Text.toArray("0123456789abcdef");
+        var out = "\"";
+        for (c in t.chars()) {
+            out #= switch (c) {
+                case ('\"') { "\\\"" };
+                case ('\\') { "\\\\" };
+                case ('\n') { "\\n" };
+                case ('\r') { "\\r" };
+                case ('\t') { "\\t" };
+                case (_) {
+                    let n = Char.toNat32(c);
+                    if (n < 0x20) {
+                        "\\u00" # Text.fromChar(hex[Nat32.toNat(n / 16)]) # Text.fromChar(hex[Nat32.toNat(n % 16)])
+                    } else { Text.fromChar(c) }
+                };
+            };
+        };
+        out # "\""
+    };
+
+    private func messagesJson(messages : [Tutor.ChatMessage]) : Text {
+        let items = Array.map<Tutor.ChatMessage, Text>(messages, func(m) {
+            let (role, content) = switch (m) {
+                case (#system_ s) { ("system", s.content) };
+                case (#user u) { ("user", u.content) };
+                case (#assistant a) { ("assistant", switch (a.content) { case (?c) { c }; case (null) { "" } }) };
+                case (#tool t) { ("user", t.content) };
+            };
+            "{\"role\":\"" # role # "\",\"content\":" # jsonString(content) # "}"
+        });
+        "{\"messages\":[" # Text.join(",", items.vals()) # "]}"
+    };
+
+    private func askProxy(messages : [Tutor.ChatMessage]) : async Tutor.Reply {
+        if (tutorProxyUrl == "" or tutorProxySecret == "") {
+            return #unavailable { reason = "The tutor fallback is not set up." };
+        };
+        try {
+            // One node makes the call (is_replicated = false), so different model replies cannot break consensus
+            let response = await (with cycles = OUTCALL_CYCLES) management.http_request({
+                url = tutorProxyUrl;
+                max_response_bytes = ?8_192;
+                method = #post;
+                headers = [
+                    { name = "content-type"; value = "application/json" },
+                    { name = "x-tutor-secret"; value = tutorProxySecret },
+                ];
+                body = ?Text.encodeUtf8(messagesJson(messages));
+                transform = null;
+                is_replicated = ?false;
+            });
+            if (response.status == 429) {
+                return #limited { reason = "The tutor is resting: today's limit is reached. Try again tomorrow."; retryAfterSeconds = secondsToTomorrow() };
+            };
+            if (response.status != 200) {
+                Debug.print("askTutor: proxy status " # Nat.toText(response.status));
+                return #unavailable { reason = "The tutor cannot answer right now. Try again later." };
+            };
+            switch (Text.decodeUtf8(response.body)) {
+                case (?text) { #ok { text } };
+                case (null) { #unavailable { reason = "The tutor gave an unreadable answer." } };
+            }
+        } catch (e) {
+            Debug.print("askTutor: proxy error: " # Error.message(e));
+            #unavailable { reason = "The tutor cannot answer right now. Try again later." }
+        }
     };
 
     public query func getQuestCount() : async Nat {

@@ -4,7 +4,8 @@
       "main": "backend/src/backend/main.mo",
       "type": "motoko",
       "dependencies": [
-        "internet_identity"
+        "internet_identity",
+        "llm"
       ],
       "declarations": {
         "output": "frontend/src/declarations"
@@ -34,6 +35,19 @@
         }
       },
       "frontend": {},
+      "declarations": {
+        "bindings": []
+      }
+    },
+    "llm": {
+      "type": "motoko",
+      "main": "backend/src/llm_mock/main.mo",
+      "remote": {
+        "candid": "backend/src/llm_mock/llm.did",
+        "id": {
+          "ic": "w36hm-eqaaa-aaaal-qr76a-cai"
+        }
+      },
       "declarations": {
         "bindings": []
       }

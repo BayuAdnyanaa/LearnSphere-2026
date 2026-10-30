@@ -4,6 +4,21 @@ type UserStats =
    questsCompleted: vec nat;
    tokens: nat;
  };
+type Turn = 
+ record {
+   fromLearner: bool;
+   "text": text;
+ };
+type Reply = 
+ variant {
+   limited: record {
+              reason: text;
+              retryAfterSeconds: nat;
+            };
+   ok: record {"text": text;};
+   rejected: record {reason: text;};
+   unavailable: record {reason: text;};
+ };
 type QuizResult = 
  variant {
    failed: record {retryAfterSeconds: nat;};
@@ -34,7 +49,14 @@ type PublicQuestion =
    options: vec text;
    "text": text;
  };
+type Mode = 
+ variant {
+   llmCanister;
+   off;
+   proxy;
+ };
 service : {
+  askTutor: (question: text, turns: vec Turn) -> (Reply);
   getAllQuests: () -> (vec Quest) query;
   getAllQuestsWithStatus: () -> (vec record {
                                        Quest;
@@ -50,5 +72,16 @@ service : {
   getQuiz: (questId: nat) -> (opt PublicQuiz) query;
   getUserStats: () -> (UserStats);
   greet: (name: text) -> (text) query;
+  setTutorMode: (mode: Mode) -> ();
+  setTutorProxy: (url: text, secret: text) -> ();
   submitQuiz: (questId: nat, answers: vec nat) -> (QuizResult);
+  tutorUsageToday: () ->
+   (record {
+      calls: nat;
+      cap: nat;
+      day: nat;
+      learners: nat;
+      mode: Mode;
+      proxyConfigured: bool;
+    }) query;
 }
