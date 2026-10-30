@@ -38,19 +38,22 @@ export function Stats({ model, compact = false }) {
   );
 }
 
-export function SuggestedNext({ model, onOpen, titleSize = 30 }) {
+// collapsed: only the title and the button (the folded phone sheet)
+export function SuggestedNext({ model, onOpen, titleSize = 30, collapsed = false }) {
   if (model.next) {
     const q = model.next.quest;
     const track = model.tracks.find((t) => t.key === model.next.track);
     return (
       <div className="flex flex-col gap-3.5">
-        <span className="ls-data text-[12px] leading-none tracking-[.1em]" style={{ color: "var(--ls-text-2)" }}>Suggested next</span>
+        <span className={`ls-data text-[12px] leading-none tracking-[.1em] ${collapsed ? "ls-sr-only" : ""}`} style={{ color: "var(--ls-text-2)" }}>Suggested next</span>
         <span className="ls-display leading-[1.05]" style={{ fontSize: titleSize, color: "#f8f4fb" }}>{q.title}</span>
-        <div className="flex flex-wrap gap-2">
-          <span className="ls-tag">{track?.name}</span>
-          <span className="ls-tag">{q.reward} tokens</span>
-          <span className="ls-tag">{q.reward * 2} XP</span>
-        </div>
+        {!collapsed && (
+          <div className="flex flex-wrap gap-2">
+            <span className="ls-tag">{track?.name}</span>
+            <span className="ls-tag">{q.reward} tokens</span>
+            <span className="ls-tag">{q.reward * 2} XP</span>
+          </div>
+        )}
         <button type="button" onClick={() => onOpen(model.next)} className="ls-cta h-[52px] rounded-full border-0 text-[16px] font-semibold">
           Open quest
         </button>
@@ -82,7 +85,7 @@ export function SidePanel({ model, onOpen }) {
         <LevelPlanet level={model.level} glow={model.orbGlow} />
         <div className="flex flex-col items-center gap-1.5">
           <span className="ls-data text-[12px] leading-none tracking-[.12em]" style={{ color: "var(--ls-text-2)" }}>Level</span>
-          <span className="text-[14px] leading-[1.3]" style={{ color: "var(--ls-text-2)" }}>{model.xpInLevel} / 100 XP to level {model.level + 1}</span>
+          <span className="text-[14px] leading-[1.3]" style={{ color: "var(--ls-text-2)" }}>{model.xpInLevel} / {model.xpSpan} XP to level {model.level + 1}</span>
         </div>
       </div>
       <Stats model={model} />

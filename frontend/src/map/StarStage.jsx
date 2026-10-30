@@ -78,6 +78,8 @@ function QuestStar({ star, onSelect, selected }) {
   let pos = { left: x - 85, top: y + 22, width: 170, alignItems: "center", textAlign: "center" };
   if (side === "t") pos = { ...pos, top: y - 22, transform: "translateY(-100%)" };
   if (side === "r") pos = { left: x + 26, top: y - 10, width: 220, alignItems: "flex-start", textAlign: "left" };
+  // Left labels are narrow so a long title breaks into two balanced lines beside the star
+  if (side === "l") pos = { left: x - 26 - 150, top: y - 10, width: 150, alignItems: "flex-end", textAlign: "right", textWrap: "balance" };
 
   return (
     <>
@@ -115,7 +117,8 @@ function QuestStar({ star, onSelect, selected }) {
 }
 
 // The sky scene in the 1440 x 900 design frame, without the page chrome
-export default function StarStage({ model, onSelect, selectedId, reduced, scale = 1 }) {
+// phone: use the phone positions of the constellation names
+export default function StarStage({ model, onSelect, selectedId, reduced, scale = 1, phone = false }) {
   return (
     <div className="absolute left-0 top-0" style={{ width: 1440, height: 900 }}>
       {/* Nebula per constellation, brighter with progress */}
@@ -153,17 +156,21 @@ export default function StarStage({ model, onSelect, selectedId, reduced, scale 
       <AuroraCanvas reduced={reduced} scale={scale} />
 
       {/* Constellation names */}
-      {model.tracks.map((t) => (
+      {model.tracks.map((t) => {
+        const moved = phone && t.phoneNameAt;
+        const [nx, ny] = moved ? t.phoneNameAt : t.nameAt;
+        return (
         <div
           key={t.key}
           className="pointer-events-none absolute flex flex-col gap-1.5"
-          style={{ left: t.nameAt[0], top: t.nameAt[1], textShadow: "0 0 10px #07060b", ...(t.centred ? { width: 180, alignItems: "center", textAlign: "center" } : {}) }}
+          style={{ left: nx, top: ny, textShadow: "0 0 10px #07060b", ...(t.centred && !moved ? { width: 180, alignItems: "center", textAlign: "center" } : {}) }}
         >
           <span className="ls-display text-[32px] leading-none" style={{ color: t.nameColor }}>{t.figure}</span>
           <span className="ls-data text-[11px] leading-[1.2] tracking-[.12em]" style={{ color: t.trackColor }}>{t.name}</span>
           <span className="text-[13px] leading-[1.2]" style={{ color: "#c9c1d6" }}>{t.progressText}</span>
         </div>
-      ))}
+        );
+      })}
 
       <Figures model={model} />
       <PrereqLines model={model} />

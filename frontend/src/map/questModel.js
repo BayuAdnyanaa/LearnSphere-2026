@@ -6,7 +6,9 @@ export const FRAME = { w: 1440, h: 900 };
 export const TRACKS = {
   icp: { key: "icp", name: "Internet Computer", figure: "Testudo", hue: 55, ids: [1, 3, 5, 12], nameAt: [48, 286], nameColor: "#fbf3ea", trackColor: "#d9cfc4", centre: [220, 520] },
   ai: { key: "ai", name: "AI Agents", figure: "Corvus", hue: 300, ids: [2, 4, 6], nameAt: [420, 246], nameColor: "#f1ebff", trackColor: "#d4cce6", centre: [580, 520] },
-  web3: { key: "web3", name: "Web3", figure: "Phoenix", hue: 350, ids: [7, 8, 9, 10, 11], nameAt: [815, 150], nameColor: "#ffeef6", trackColor: "#e4cfdb", centre: [905, 470], centred: true },
+  web3: { key: "web3", name: "Web3", figure: "Phoenix", hue: 350, ids: [7, 8, 9, 10, 11], nameAt: [815, 150], nameColor: "#ffeef6", trackColor: "#e4cfdb", centre: [905, 470], centred: true,
+    // Phones crop the sky below y 215, so the name moves beside the right wing
+    phoneNameAt: [1052, 250] },
 };
 
 // Path order: the suggested next quest is the first open quest in this order
@@ -20,7 +22,7 @@ export const TRACK_OF = Object.fromEntries(
 export const STAR_AT = {
   1: [220, 640, "b"], 3: [220, 540, "b"], 5: [220, 440, "b"], 12: [226, 350, "r"],
   2: [500, 640, "r"], 4: [580, 540, "b"], 6: [650, 430, "b"],
-  7: [905, 330, "t"], 8: [905, 470, "b"], 9: [820, 630, "b"], 10: [905, 672, "b"], 11: [990, 630, "b"],
+  7: [905, 330, "t"], 8: [905, 470, "b"], 9: [820, 630, "l"], 10: [905, 672, "b"], 11: [990, 630, "b"],
 };
 
 // Prerequisite lines (from, to)
@@ -51,6 +53,19 @@ export const STATE_TEXT = {
 };
 
 // Seconds as m:ss, or h:mm:ss for the 24 h step
+// Total XP needed to reach a level. The level curve is a product decision: change it only here.
+export function xpForLevel(level) {
+  return (level - 1) * 100;
+}
+
+// The learner's level from total XP, with the XP gained in it and the XP the level spans
+export function levelFromXp(xp) {
+  let level = 1;
+  while (xpForLevel(level + 1) <= xp) level++;
+  const start = xpForLevel(level);
+  return { level, into: xp - start, span: xpForLevel(level + 1) - start };
+}
+
 export function clock(seconds) {
   const s = Math.max(0, Math.ceil(seconds));
   const h = Math.floor(s / 3600);
@@ -122,7 +137,7 @@ export function buildModel(quests, cooldowns, stats) {
 
   const tokens = Number(stats?.tokens ?? 0);
   const xp = Number(stats?.experience ?? 0);
-  const level = Math.floor(xp / 100) + 1;
+  const { level, into, span } = levelFromXp(xp);
   const lit = stars.filter((s) => s.state === "done").length;
 
   return {
@@ -136,7 +151,8 @@ export function buildModel(quests, cooldowns, stats) {
     tokens,
     xp,
     level,
-    xpInLevel: xp % 100,
+    xpInLevel: into,
+    xpSpan: span,
     orbGlow: Math.min(1, 0.25 + level / 40),
     next: nextId ? starById[nextId] : null,
   };
