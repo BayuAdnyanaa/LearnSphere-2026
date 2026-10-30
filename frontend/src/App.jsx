@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 
 // ICP and DFINITY imports
@@ -21,7 +21,8 @@ import UserStats from "./components/UserStats";
 import QuestGrid from "./components/QuestGrid";
 import QuestModal from "./components/QuestModal";
 import StarField from "./components/StarField";
-import ChatAssistant from "./components/ChatAssistant";
+// The chat pulls in @cosmjs (most of the bundle), so it loads as its own chunk after the app starts
+const ChatAssistant = lazy(() => import("./components/ChatAssistant"));
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -314,7 +315,9 @@ function App() {
           result={quizResult}
         />
       </div>
-      <ChatAssistant />
+      <Suspense fallback={null}>
+        <ChatAssistant />
+      </Suspense>
     </div>
   );
 }
