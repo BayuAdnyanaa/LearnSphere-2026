@@ -3,6 +3,9 @@
     "learnsphere_backend": {
       "main": "backend/src/backend/main.mo",
       "type": "motoko",
+      "dependencies": [
+        "internet_identity"
+      ],
       "declarations": {
         "output": "frontend/src/declarations"
       }
